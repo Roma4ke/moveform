@@ -1,0 +1,407 @@
+<?php
+/**
+* Implement hook_menu().
+*/
+
+function movecalc_menu() {	
+    
+	$items['input/examples'] = array (
+	'title' => 'Form API examples',
+	'description' => 'Example of using the Form API.',
+	'page callback' => 'drupal_get_form',
+	'page arguments' => array('movecalc_moving_form'),
+	'access callback' => TRUE,
+	);
+	$items['input/examples/simple'] = array (
+	'title' => 'Simple',
+	'description' => 'Example of using page callback',
+	'page callback' => 'movecalc_simple_page',
+	'access callback' => TRUE,
+	);
+	return $items;
+	} 
+
+/** 
+ * A simple form
+*/
+ function movecalc_moving_form($form,&$form_submit) {
+ libraries_load('easing');
+ drupal_add_js(drupal_get_path('module', 'movecalc') . '/pick_reate_popup.js');
+ drupal_add_css(drupal_get_path('module', 'movecalc') . "/datepicker.css");
+ 
+ 
+ // Calculator
+  $form['calculator'] = array(
+	'#title' => 'Moving Calculator',
+	'#type' => 'fieldset',
+  );   
+  
+  $form['calculator']['Move_Date'] = array(
+   '#title' => t('Date of Move:'),
+  '#type' => 'date_popup', // Provided by the date_popup module
+  '#date_format' => 'j F Y', // Uses the PHP date() format - http://php.net/manual/en/function.date.php
+  '#date_year_range' => 'now:+2', // Limits the year range to the next two upcoming years
+  '#required' => TRUE,
+   '#attributes' =>array('class' =>array('required')),
+  );
+	
+	$form['calculator']['Zip_Code_From'] = array (
+		'#title' => t('From Zip:'),
+		'#type' => 'textfield',
+		'#maxlength' => 5,
+	     '#size' => 5,
+		'#attributes' =>array('class' =>array('required')),
+	 );
+	  $form['calculator']['Zip_Code_To'] = array (
+		'#title' => t('To Zip:'),
+		'#type' => 'textfield',
+		'#maxlength' => 5,
+	     '#size' => 5,
+		 '#attributes' =>array('class' =>array('required')),
+	 );
+	  
+	 $form['calculator']['Size_Move'] = array (
+		'#title' => t('Size of Move:'),
+		'#type' => 'select',
+		'#options' => array (
+		 '' => t('Size of Move'),
+		 '1' => t('One Room or less ( < 1000lbs)'),
+		 '2' => t('Studio Apt.'),
+		 '3' => t('Small 1 Bedroom Apt.'),
+		 '4' => t('Large 1 Bedroom Apt.'),
+		 '5' => t('Small 2 Bedroom Apt.'),
+		 '6' => t('Large 2 Bedroom Apt.'),
+		 '7' => t('3+ Bedroom Apt.'),
+		 '8' => t('2 Bedroom House / Townhouses'),
+		 '9' => t('3 Bedroom House / Townhouses'),
+		 '10'=> t('4+ Bedroom House / Townhouses'),
+		 ),
+		 '#attributes' =>array('class' =>array('required')),
+	 );
+	  $form['calculator']['Extra_Furnished_Rooms'] = array (
+		'#title' => t('Extra_Furnished_Rooms:'),
+		'#type' => 'checkboxes',
+		'#options' => array (
+		 '1' => t('dining room'),
+		 '2' => t('office'),
+		 '3' => t('basement'),
+		 '4' => t('garage'),
+		 '5' => t('attic'),
+		 '6' => t('shed'),
+		 ),
+		 
+	 );
+	 $form['calculator']['Type_From'] = array (
+		'#title' => t('Type of entrance (From):'),
+		'#type' => 'select',
+		'#options' => array (
+		 '' => t('From Type'),
+		 '1' => t('Private House'),
+		 '2' => t('Elevator Building'),
+		 '3' => t('Stairs 2nd Floor'),
+		 '4' => t('Stairs 3nd Floor'),
+		 '5' => t('Stairs 4nd Floor'),
+		 '6' => t('Stairs 5nd or Higher'),
+		 '7' => t('Storage Unit'),
+		 ),
+		 '#attributes' =>array('class' =>array('required')),
+	 );
+	 $form['calculator']['Type_To'] = array (
+		'#title' => t('Type of entrance (To):'),
+		'#type' => 'select',
+		'#options' => array (
+		 '' => t('To Type'),
+		 '1' => t('Private House'),
+		 '2' => t('Elevator Building'),
+		 '3' => t('Stairs 2nd Floor'),
+		 '4' => t('Stairs 3nd Floor'),
+		 '5' => t('Stairs 4nd Floor'),
+		 '6' => t('Stairs 5nd or Higher'),
+		 '7' => t('Storage Unit'),
+		 ),
+		 '#attributes' =>array('class' =>array('required')),
+	);
+	
+		$form['calculator']['calculate'] = array(
+		 '#type' => 'button',
+		 '#value' => 'Calculate >>',
+		 '#attributes' =>array('class' =>array('calculate-btn')),
+		  '#ajax' => array(
+		  'callback' => 'calculate_results',
+		  'wrapper' => 'calc-results',
+		),
+		);
+	
+	//Calculator Result
+	 $form['calculator_results'] = array(
+	'#title' => 'Calculator Results',
+	'#type' => 'fieldset',
+	);
+	 $form['calculator_results']['results'] = array (
+	 '#type'=> 'markup',
+	 '#markup' => '<div id="calc-results"><p>Results sopposed to be here</p></div>',
+	 );
+	 $form['calculator_results']['back_to_calculator'] = array(
+		 '#type' => 'button',
+		 '#value' => '<< Back to Calculator',
+		 '#attributes' =>array('class' =>array('back-calculator-btn')),
+		  '#ajax' => array(
+		  'callback' => 'back_step',
+		  'wrapper' => 'RESULTS',
+		),
+		);
+	
+     //Personal Info
+	  $form['personal_info'] = array(
+	'#title' => 'Persanol Information and Moving Details',
+	'#type' => 'fieldset',
+	);
+	 $form['personal_info']['first_name'] = array (
+		'#type' => 'textfield',
+		'#id' => 'userbar',
+		 '#size' => 15,
+		 '#required' => TRUE,
+		 '#attributes' =>array('placeholder' => t('First Name')),
+	 );	 
+	  $form['personal_info']['last_name'] = array (
+		'#type' => 'textfield',
+		'#id' => 'userbar',
+		 '#size' => 15,
+		 '#required' => TRUE,
+		 '#attributes' =>array('placeholder' => t('Last Name')),
+	 );
+	$form['personal_info']['back_to_results'] = array(
+		 '#type' => 'button',
+		 '#value' => '<< Back to Calendar',
+		 '#attributes' =>array('class' =>array('back-calendar-btn')),
+		);
+	 $form['personal_info']['summery_btn'] = array(
+		 '#type' => 'button',
+		 '#value' => 'Continue to Summery >>',
+		 '#attributes' =>array('class' =>array('summery-btn')),
+		);
+	 
+	 //*Summery
+	   $form['summery'] = array(
+	'#title' => 'Summery',
+	'#type' => 'fieldset',
+	);
+	 $form['summery'] ['submit'] = array(
+	 '#type' => 'submit',
+	 '#value' => 'Submit',
+	 );
+	 
+	 // Get the path to the module
+	$path = drupal_get_path('module', 'movecalc');
+	// Attach the CSS and JS to the form
+	$form['#attached'] = array
+	(
+		'css' => array
+		(
+			'type' => 'file',
+			'data' => $path . '/form_theme.css',
+		),
+		'js' => array
+		(
+			'type' => 'file',
+			'data' => $path . '/form_theme.js',
+		),
+	);
+	 
+    return $form;
+ }
+ /** 
+*   Back Ajax Callback
+*/ 
+	function back_step($form,&$form_state){
+	
+		  $results = array(
+		  'step' => '',
+		  'this' =>''
+		  );		
+		 $results['step'] = $form_state['clicked_button']['#value'];
+		 $results['this'] = $form_state['clicked_button']['#attributes']['class'][0];
+		drupal_add_js(array('calculator' => $results), "setting");
+	  
+	}
+ /** 
+*   Calculate Resulats Ajax Callback First Step
+*/ 
+ function calculate_results($form,&$form_state){
+
+ $date = $form_state['values']['Move_Date'];
+ $zip_from = $form_state['values']['Zip_Code_From'];
+ $zip_to = $form_state['values']['Zip_Code_To'];
+ $move_size = $form_state['values']['Size_Move'];
+ $type_to = $form_state['values']['Type_To'];
+ $type_from = $form_state['values']['Type_From'];
+ $extra_rooms = $form_state['values']['Extra_Furnished_Rooms'];	
+
+ $Size_of_Move = $form_state['complete form']['calculator']['Size_Move']['#options'][$move_size];
+ $Type_From = $form_state['complete form']['calculator']['Type_From']['#options'][$type_from];
+ $Type_To = $form_state['complete form']['calculator']['Type_To']['#options'][$type_to];
+ 	 
+   $results = array(
+  'date' => $date,
+  'zip_from' => $zip_from,
+  'step' => '',
+  'this' =>''
+  );
+  
+ 
+  //save setting for callculate results
+  if($form_state['clicked_button']['#value'] == 'Calculate >>') {
+  
+	 //Adress and distance based on ZIPS
+	$url = 'http://maps.googleapis.com/maps/api/directions/json?origin='.$zip_from.'&destination='.$zip_to.'&sensor=false';
+	$result_string = file_get_contents($url);
+	$decoded_json = json_decode($result_string,true);
+	$from = $decoded_json['routes'][0]['legs'][0]['start_address'];
+	$to = $decoded_json['routes'][0]['legs'][0]['end_address'];	 
+	$distance = $decoded_json['routes'][0]['legs'][0]['distance']['text'];   //Distance from Zip To Zip
+	$duration = round($decoded_json['routes'][0]['legs'][0]['duration']['value'] / 3600,1); // Apr. Driving Time. 
+	$results['step'] = 'Calculate >>';
+	$results['this'] = $form_state['clicked_button']['#attributes']['class'][0];
+	
+	drupal_add_js(array('calculator' => $results), "setting");
+	
+	if($decoded_json['status'] == 'ZERO_RESULTS' || $decoded_json['status'] == 'INVALID_REQUEST') 
+	  return '<div id="calc-results"><p>Zip code you have provided does not exist.</p></div>';
+      
+	
+	//* 
+	///SHOW CALCULATE RESULTS HERE 
+	 $output = '<div id="calc-results"><div class="results-description"><p>Moving of '.$Size_of_Move.' with basement 
+	 from '.$from.' to '.$to.' (distance: '.$distance.') from '.$Type_From.', 
+	 to '.$Type_To.'	 should take approximately:</p></div>
+	 <div class="result-box"></div></div>'; 
+	 return $output;
+    
+  }
+  
+ }
+ 
+/**
+ *  Define Theme Function for Form
+ */
+ function movecalc_theme()
+{
+	return array
+	(
+		'movecalc_moving_form' => array
+		(
+			'render element' => 'form'
+		),
+	);
+}
+
+ /** 
+*   Theme Function
+*/ 
+ 
+ function theme_movecalc_moving_form($variables)
+{
+	// Isolate the form definition form the $variables array
+	$form = $variables['form'];
+	$output = '<ul id="progressbar">
+		<li>Moving Calculator</li>
+		<li>Calculator Result</li>
+		<li>Personal Details</li>
+		</ul>';
+	$output .= drupal_render_children($form);
+	// return the output
+	return $output;
+}
+ /**
+ *Page embedding a form on a page
+ */
+  function movecalc_simple_page() {
+	$build = array (
+	'header_text' => array(
+	'#type' => 'markup',
+	'#markup' => '<p>' . t('To add additinal content to a form page.').'</p>',
+	),
+	'example_form' => drupal_get_form('movecalc_moving_form'),
+	);
+	return $build;
+	}
+	
+/* Validation *
+ function movecalc_simple_form_validate($form,&$form_state){
+	if($form_state['values']['Type_To'] == 1 || $form_state['values']['Type_From'] == 1 )
+	  form_set_error('Calculator Alert!','Please choose type of entrance.');
+	  
+	$zip_from = $form_state['values']['Zip_Code_From'];
+	$zip_to = $form_state['values']['Zip_Code_To'];
+
+	$url = 'http://maps.googleapis.com/maps/api/directions/json?origin='.$zip_from.'&destination='.$zip_to.'&sensor=false';
+	$result_string = file_get_contents($url);
+	$decoded_json = json_decode($result_string,true);
+	//dsm($decoded_json);
+	if($decoded_json['status'] == 'ZERO_RESULTS' || $decoded_json['status'] == 'INVALID_REQUEST') {
+	  form_set_error('Alert','Zip code you have provided does not exist.');
+	}else {
+	 $from = $decoded_json['routes'][0]['legs'][0]['start_address'];
+	 $to = $decoded_json['routes'][0]['legs'][0]['end_address'];	 
+	 }
+	 
+}
+
+ /**
+  * Submint function
+ */
+ function movecalc_moving_form_submit($form,&$form_state){
+     $date = $form_state['values']['Move_Date'];
+	$zip_from = $form_state['values']['Zip_Code_From'];
+	$zip_to = $form_state['values']['Zip_Code_To'];
+	$move_size = $form_state['values']['Size_Move'];
+	$type_to = $form_state['values']['Type_To'];
+	$type_from = $form_state['values']['Type_From'];
+	$extra_rooms = $form_state['values']['Extra_Furnished_Rooms'];	
+
+	//dsm($extra_rooms);
+	
+	$url = 'http://maps.googleapis.com/maps/api/directions/json?origin='.$zip_from.'&destination='.$zip_to.'&sensor=false';
+	$result_string = file_get_contents($url);
+	$decoded_json = json_decode($result_string,true);
+
+     
+	$distance = $decoded_json['routes'][0]['legs'][0]['distance']['text'];   //Distance from Zip To Zip
+	$duration = round($decoded_json['routes'][0]['legs'][0]['duration']['value'] / 3600,1); // Apr. Driving Time. 
+	
+	
+	movecalc_peak_date($date);
+    $view = views_get_view('move_time_table');
+			$args = array($move_size);
+			$view->set_display('page');
+			$view->set_arguments($args);
+			$view->pre_execute($args);			
+			$view->execute();
+			foreach ($view->result AS $i => $result) {	
+			// dsm($result);				
+			}
+			$view->destroy();	
+
+   }
+  
+ /*** 
+ *    Date Price Calc
+***/
+function movecalc_peak_date($mydate) {
+	$peak = '';
+	$month = date("n",strtotime($mydate));
+	$day = date('d',strtotime($mydate));
+	$dw = date( "w", strtotime($mydate));
+	
+
+	if($dw == 0) { //if sunday
+		$peak = 'Seasonal';
+	}elseif($dw == 5 || $dw == 6 || $day == 30 || $day == 31 || $day == 29 || $day == 28 ) { //if friday or saturday
+	    $peak = 'Peak';
+	}else
+	  $peak = 'Regular';
+	 
+
+}
+
+

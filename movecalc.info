@@ -1,0 +1,7 @@
+name = Moving Calculator
+description = "Moving Calculator for Moving Company"
+package = Raimond Movers
+core = 7.x
+dependencies[] = date_popup
+files[] = movecalc.module
+files[] = datepicker.css
