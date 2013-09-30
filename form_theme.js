@@ -3,6 +3,7 @@
 {
 
 	var w_formId = '#movecalc-moving-form';
+	var animating;
 	Drupal.behaviors.formTheme = {
 		attach:function() {
 		
@@ -17,14 +18,47 @@
 				//Calculate results
 				if(Drupal.settings.calculator.step == 'Calculate >>'){
 				
-					current_fs = $(btn).parent().parent();
-					next_fs = $(btn).parent().parent().next();
+								 nextstep('#edit-calculator');
+								 
+					}
+				//Back to steps
+				if(Drupal.settings.calculator.step ==  ('<< Back to Calculator' || '<< Back to Calendar')){
+					var current = $(btn).parent().parent();				
+					prevstep(current);
+			
+				}
 					
-					   if(!validateStep('#edit-calculator')){					
-							//activate next step on progressbar using the index of next_fs
-							$("#progressbar li").eq($("#msform fieldset").index(next_fs)).addClass("active");
-							
-							//show the next fieldset
+			}
+					
+	
+			
+		$('#go-calculator-results-btn').click(function() {
+         var date = $(this).val();
+		 
+		 nextstep('#edit-calculator-results');
+		 
+        return false;
+      })
+	  	$('#back-to-calendar-btn').click(function() {
+        
+		 prevstep('#edit-personal-info');
+		 
+        return false;
+      })
+	  
+					
+			
+		}
+		
+	};
+	function nextstep(current) {
+	
+	if(animating) return false;
+	animating = true;
+	
+	current_fs = $(current);
+	next_fs = $(current).next();
+	//show the next fieldset
 							next_fs.show();			
 							//hide the current fieldset with style
 							current_fs.animate({opacity: 0}, {
@@ -42,15 +76,21 @@
 								duration: 800, 
 								complete: function(){
 									current_fs.hide();
+									animating = false;
 								}, 
 								//this comes from the custom easing plugin
 								easing: 'easeInOutBack'
-								})
-						}				
-					}
-				if(Drupal.settings.calculator.step == '<< Back to Calculator'){
-					current_fs = $(btn).parent().parent();
-					previous_fs = $(btn).parent().parent().prev();
+								});
+
+	return false;
+}
+	function prevstep(current){
+	
+	if(animating) return false;
+	animating = true;
+	
+	current_fs = $(current);
+	previous_fs = $(current).prev();
 					
 					//de-activate current step on progressbar
 					$("#progressbar li").eq($("fieldset").index(current_fs)).removeClass("active");
@@ -73,24 +113,15 @@
 						duration: 800, 
 						complete: function(){
 							current_fs.hide();
+							animating = false;
 						}, 
 						//this comes from the custom easing plugin
 						easing: 'easeInOutBack'
 					});
-			
-				}
-					
-			}
-					
 	
-			
-		
-					
-			
-		}
-		
-	};
+	return false;
 	
+	}
 		/*
 		validates one fieldset
 		and returns -1 if errors found, or 1 if not

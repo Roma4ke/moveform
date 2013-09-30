@@ -76,3 +76,23 @@ z-index:10;
 	background: #27AE60;
 	color: white;
 }
+
+/*block layout in form*/
+
+#movecalc-moving-form .three_block {
+border: none;
+float: left;
+width: 33%;
+}
+#movecalc-moving-form .three2_block {
+border: none;
+float: left;
+width: 66%;
+}
+#movecalc-moving-form  .form-item {
+width: 80%;
+}
+.calendar_box {
+width: 25%;
+float: left;
+}
