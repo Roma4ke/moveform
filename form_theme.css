@@ -92,6 +92,10 @@ width: 66%;
 #movecalc-moving-form  .form-item {
 width: 80%;
 }
+#go-calculator-results-btn {
+float: right;
+}
+
 .calendar_box {
 width: 25%;
 float: left;

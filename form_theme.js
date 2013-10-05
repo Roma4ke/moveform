@@ -10,9 +10,7 @@
 			var current_fs, next_fs, previous_fs; //fieldsets
 			var left, opacity, scale; //fieldset properties which we will 
 			if(Drupal.settings.calculator != undefined){
-			
-			    
-				
+						
 				var date = Drupal.settings.calculator.date;
 				var btn = '.'+Drupal.settings.calculator.this;
 				//Calculate results
@@ -27,25 +25,88 @@
 					prevstep(current);
 			
 				}
+				//Confirm AJax Step 
+				if(Drupal.settings.calculator.step == 'Confirm'){
+				
+								 nextstep('#edit-summery');
+								 
+					}
 					
 			}
-					
 	
-			
-		$('#go-calculator-results-btn').click(function() {
+				
+		$('#go-calculator-results-btn').once('next-result').click(function() {
          var date = $(this).val();
+		 $('#edit-moving-from-zip').val(Drupal.settings.calculator.zip_to);
+		 $('#edit-moving-to-zip').val(Drupal.settings.calculator.zip_from);
+		 
+		 $('#edit-moving-from-city').val(Drupal.settings.calculator.city_from);
+		 $('#edit-moving-to-city').val(Drupal.settings.calculator.city_to);
+		 
+		 $('#edit-moving-from-state').val(Drupal.settings.calculator.state_from);
+		 $('#edit-moving-to-state').val(Drupal.settings.calculator.state_to);
+		
+		 
 		 
 		 nextstep('#edit-calculator-results');
 		 
         return false;
       })
-	  	$('#back-to-calendar-btn').click(function() {
+	  	$('#back-to-calendar-btn').once('calendar-btn').click(function() {
         
 		 prevstep('#edit-personal-info');
 		 
         return false;
       })
+		$('#back-to-info-btn').once('back-summery').click(function() {
+        
+		 prevstep('#edit-summery');
+		 
+        return false;
+      })
+	 
 	  
+	  $('#go-to-summery-btn').once('summery').click(function() {
+         
+		 $('#summery_results .result_box').remove();
+		 var Name = $('#edit-first-name').val();
+		 var LastName = $('#edit-last-name').val();
+		 var PrimaryPhone= $('#primary_phone').val();
+		 var AdditionalPhone = $('#edit-additional-phone').val();
+		 var Email = $('#edit-email').val();
+		 var PreferedTime = $('#edit-prefered-time option:selected').text();
+		 
+		 var AddressFrom = $('#edit-moving-from').val();
+		 var AptFrom = $('#edit-moving-from-apt').val();
+		 var ZipFrom = $('#edit-moving-from-zip').val();
+		 var CityFrom = $('#edit-moving-from-city').val();
+		 var StateFrom = $('#edit-moving-from-state').val();
+		 
+		 var AddressTo= $('#edit-moving-to').val();
+		 var AptTo = $('#edit-moving-to-apt').val();
+		 var ZipTo = $('#edit-moving-to-zip').val();
+		 var CityTo = $('#edit-moving-to-city').val();
+		 var StateTo = $('#edit-moving-to-state').val();
+		 var Comments = $('#edit-comments-about-move').val();
+		 
+		 var CalcResults = $('.calendarBox').clone();
+		 $('.result_box').find('button').remove();
+		 $('#summery_results .result_box').remove();
+		 $('#summery_results').append('<div class="result_box"></div>');
+		 $('#summery_results .result_box').append(CalcResults);
+		 
+		 var SummeryHtml = '<div class="summery_info_box"><div class="three_block"><label>Personal Information::</label><p><b>'+Name+LastName+'</b></p><p>Primary Phone: '+PrimaryPhone+'</p><p>Email: '+Email+'</p></div></div>';
+		 var AddressFrom = '<div class="three_block"><label>Moving From:</label><p><b>'+AddressFrom+'#'+AptFrom+','+CityFrom +','+StateFrom+' '+ZipFrom+'</b></div>';
+		 var AddressTo = '<div class="three_block"><label>Moving To:</label><p><b>'+AddressTo+'#'+AptTo+','+CityTo +','+StateTo+' '+ZipTo+'</b></div><div style="clear:both;"></div>';
+		 
+		$('#summery_results .result_box').append(SummeryHtml).append(AddressFrom).append(AddressTo);
+		$('#summery_results .calendar_date').append(PreferedTime);
+
+		 nextstep('#edit-personal-info');
+		 
+		 
+        return false;
+      })
 					
 			
 		}

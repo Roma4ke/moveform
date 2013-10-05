@@ -89,6 +89,10 @@ function movecalc_menu() {
 		 '5' => t('attic'),
 		 '6' => t('shed'),
 		 ),
+		 '#states' => array(
+		 'visible' => array(':input[name="Size_Move"]'=>array('value' => 4),
+			),
+		 ),
 		 
 	 );
 	 $form['calculator']['Type_From'] = array (
@@ -127,9 +131,10 @@ function movecalc_menu() {
 		 '#value' => 'Calculate >>',
 		 '#attributes' =>array('class' =>array('calculate-btn')),
 		  '#ajax' => array(
-		  'callback' => 'calculate_results',
+		  'callback' => 'movecalc_calculate_results',
 		  'wrapper' => 'calc-results',
 		),
+		
 		);
 	
 	//Calculator Result
@@ -146,7 +151,7 @@ function movecalc_menu() {
 		 '#value' => '<< Back to Calculator',
 		 '#attributes' =>array('class' =>array('back-calculator-btn')),
 		  '#ajax' => array(
-		  'callback' => 'back_step',
+		  'callback' => 'movecalc_back_step',
 		  'wrapper' => 'RESULTS',
 		),
 		
@@ -163,7 +168,6 @@ function movecalc_menu() {
 	 '#prefix' => '<div class="three_block">',
 		'#type' => 'textfield',
 		 '#size' => 15,
-		 '#required' => TRUE,
 		 '#attributes' =>array('placeholder' => t('First Name'),'class' =>array('required')),
 		 
 	 );	 
@@ -413,13 +417,36 @@ moving time.</p>',
 	 
 	 //*Summery
 	   $form['summery'] = array(
-	'#title' => 'Summery',
+	'#title' => 'Summery Review',
 	'#type' => 'fieldset',
 	);
+	$form['summery']['summery_results'] = array (
+	 '#type'=> 'markup',
+	 '#markup' => '<div id="summery_results"><div class="result_box"><p>Results sopposed to be here</p></div></div>',
+	 );
+	 //buttons 
+	  $form['summery']['back_to_personal_info'] = array (
+	 '#type'=> 'markup',
+	 '#markup' => '<input class="summery-btn form-submit button" type="submit" id="back-to-info-btn" name="op" value="<< Back to Details">',
+	 );
 	 $form['summery'] ['submit'] = array(
 	 '#type' => 'submit',
-	 '#value' => 'Submit',
+	 '#value' => 'Submit Moving Request',
+	  '#ajax' => array(
+		  'callback' => 'movecalc_confirm_step',
+		  'wrapper' => 'confirmation_block',
+		),
 	 );
+	 //*Summery
+	  $form['confirmation'] = array(
+	'#title' => 'Confirmation',
+	'#type' => 'fieldset',
+	);
+	$form['confirmation']['confirmation_message'] = array (
+	 '#type'=> 'markup',
+	 '#markup' => '<div id="confirmation_block"></div>',
+	 );
+	 
 	 
 	 // Get the path to the module
 	$path = drupal_get_path('module', 'movecalc');
@@ -443,7 +470,7 @@ moving time.</p>',
  /** 
 *   Back Ajax Callback
 */ 
-	function back_step($form,&$form_state){
+	function movecalc_back_step($form,&$form_state){
 	
 		  $results = array(
 		  'step' => '',
@@ -457,7 +484,7 @@ moving time.</p>',
  /** 
 *   Calculate Resulats Ajax Callback First Step
 */ 
- function calculate_results($form,&$form_state){
+ function movecalc_calculate_results($form,&$form_state){
 
  $date = $form_state['values']['Move_Date'];
  $zip_from = $form_state['values']['Zip_Code_From'];
@@ -471,33 +498,54 @@ moving time.</p>',
  $Type_From = $form_state['complete form']['calculator']['Type_From']['#options'][$type_from];
  $Type_To = $form_state['complete form']['calculator']['Type_To']['#options'][$type_to];
  	 
-   $results = array(
-  'date' => $date,
-  'zip_from' => $zip_from,
-  'step' => '',
-  'this' =>''
-  );
+   
   
  
   //save setting for callculate results
   if($form_state['clicked_button']['#value'] == 'Calculate >>') {
   
 	 //Adress and distance based on ZIPS
-	$url = 'http://maps.googleapis.com/maps/api/directions/json?origin='.$zip_from.'&destination='.$zip_to.'&sensor=false';
-	$result_string = file_get_contents($url);
-	$decoded_json = json_decode($result_string,true);
+	//$url = 'http://maps.googleapis.com/maps/api/directions/json?origin='.$zip_from.'&destination='.$zip_to.'&sensor=false';
+	//$result_string = file_get_contents($url);
+	//$decoded_json = json_decode($result_string,true);
+	
 	$from = $decoded_json['routes'][0]['legs'][0]['start_address'];
 	$to = $decoded_json['routes'][0]['legs'][0]['end_address'];	 
 	$distance = $decoded_json['routes'][0]['legs'][0]['distance']['text'];   //Distance from Zip To Zip
 	$duration = round($decoded_json['routes'][0]['legs'][0]['duration']['value'] / 3600,1); // Apr. Driving Time. 
+	
+	$location_from = explode(',', $from, -1);
+	$location_to = explode(',', $to, -1);
+	$city_from = $location_from[0];
+	$state_from = explode(' ', $location_from[1],-1);
+	$city_to = $location_to[0];
+	$state_to = explode(' ', $location_to[1],-1);
+	
+
+	$results = array(
+	  'date' => $date,
+	  'zip_from' => $zip_from,
+	  'zip_to' =>$zip_to,
+	  'city_from' => $city_from,
+	  'state_from'=> $state_from[1],
+	  'city_to'=> $city_to,
+	  'state_to' => $state_to[1],
+	  'step' => '',
+	  'this' =>''
+	  );
 	$results['step'] = 'Calculate >>';
 	$results['this'] = $form_state['clicked_button']['#attributes']['class'][0];
+	
+	
+	
 	
 	drupal_add_js(array('calculator' => $results), "setting");
 	
 	if($decoded_json['status'] == 'ZERO_RESULTS' || $decoded_json['status'] == 'INVALID_REQUEST') 
 	  return '<div id="calc-results"><p>Zip code you have provided does not exist.</p></div>';
       
+	// Populate some fields in INFO stage
+	
 	
 	//* 
 	///SHOW CALCULATE RESULTS HERE 
@@ -509,39 +557,45 @@ moving time.</p>',
 			$view->execute();
 			$info_box = '';
 			foreach ($view->result AS $i => $result) {	
-			   	//	dsm($result);
+			   		//dsm($result);
 			    $crew = $result->field_field_movers[0]['raw']['value'];
-			    $time = $result->field_field_time_appr[0]['raw']['value'];
+			    $min_time = $result->field_field_time_appr[0]['raw']['value'];
+			    $max_time = $result->field_field_max_time[0]['raw']['value'];
 			    $truck = $result->field_field_truck[0]['rendered']['#markup'];
 			
-				//dsm(movecalc_peak_date($date));
-				$total_time = $time + $duration;
+				$price = movecalc_get_price($date,$crew);
+				$total_min_time = $min_time  + $duration;
+				$total_max_time = $max_time  + $duration;
+	
+				$viewDate = date("l, M j",strtotime($date));
 				$info_box = $info_box.'<div class="calendarBox">
 				<div class="box_info calendar_box">
 				<h3 class="crew"><label>'.$crew.'</label> Movers crew</h3>
-				<h3 class="truck">'.$truck.'</h3>
-				<div class="time-label">'.$total_time.' hour</div>	
+				<h5 class="truck">'.$truck.'</h5>
 				</div>
 				<div class="calendar_box">
-				<div class="calendar_date">'.$date.'</div>
-				<button class="summery-btn form-submit button" type="submit" id="go-calculator-results-btn" value="'.$date.' value1="'.$crew.'">Book Now &gt;&gt;</button> 
+				<div class="time-label"><h2>'.$total_min_time .'-'.$total_max_time.' <span>hours</span> </h2></div>	
 				</div>
 				<div class="calendar_box">
-				<div class="calendar_date">'.$date.'</div>
-				<button class="summery-btn form-submit button" type="submit" id="go-calculator-results-btn" value="'.$date.'">Book Now &gt;&gt;</button> 
+				<div class="time-label"><h2>'.$total_min_time*$price.'$-'.$total_max_time*$price.'$</h2></div>	
 				</div>
+	
 				<div class="calendar_box">
-				<div class="calendar_date">'.$date.'</div>
-				<button class="summery-btn form-submit button" type="submit" id="go-calculator-results-btn" value="'.$date.'">Book Now &gt;&gt;</button> 
+				<div class="calendar_date"><h3>'.$viewDate.'</h3></div>
 				</div>
 				</div>
-				<div style="clear:both;"></div>';
+				<div style="clear:both;"></div>
+				
+				<button class="summery-btn form-submit button button--primary" type="submit" id="go-calculator-results-btn">Make Request &gt;&gt;</button> 
+				</div>
+				';
 			}
 			$view->destroy();	
 	
 	 $output = '<div id="calc-results"><div class="results-description"><p>Moving of '.$Size_of_Move.' with basement 
 	 from '.$from.' to '.$to.' (distance: '.$distance.') from '.$Type_From.', 
-	 to '.$Type_To.'	 should take approximately:</p></div>';
+	 to '.$Type_To.'	 should take approximately:</p>
+	 </div>';
 	 
 	 $output = $output.$info_box;
 	  
@@ -620,7 +674,7 @@ moving time.</p>',
  /**
   * Submint function
  */
- function movecalc_moving_form_submit($form,&$form_state){
+ function movecalc_confirm_step($form,&$form_state){
      $date = $form_state['values']['Move_Date'];
 	$zip_from = $form_state['values']['Zip_Code_From'];
 	$zip_to = $form_state['values']['Zip_Code_To'];
@@ -629,31 +683,50 @@ moving time.</p>',
 	$type_from = $form_state['values']['Type_From'];
 	$extra_rooms = $form_state['values']['Extra_Furnished_Rooms'];	
 
-	//dsm($extra_rooms);
+	$results = array(
+	  'step' => '',
+	  'this' =>''
+	  );
+	$results['step'] = 'Confirm';
+	$results['this'] = $form_state['clicked_button']['#attributes']['class'][0];
 	
-	$url = 'http://maps.googleapis.com/maps/api/directions/json?origin='.$zip_from.'&destination='.$zip_to.'&sensor=false';
-	$result_string = file_get_contents($url);
-	$decoded_json = json_decode($result_string,true);
 
-     
-	$distance = $decoded_json['routes'][0]['legs'][0]['distance']['text'];   //Distance from Zip To Zip
-	$duration = round($decoded_json['routes'][0]['legs'][0]['duration']['value'] / 3600,1); // Apr. Driving Time. 
 	
 	
-	movecalc_peak_date($date);
-    $view = views_get_view('move_time_table');
-			$args = array($move_size);
+	
+	
+	drupal_add_js(array('calculator' => $results), "setting");
+	
+	$output = '<div id="confirmation_block">Thank You!<h2>Your Moving Request has been Submitted.</h2> Weve sent you an email with all details regarding your request.
+In the meantime, the Confirmation Number above confirms that the system has received your request. The current status of your reservation is "Requested". We will contact you shortly to confirm your Moving Request, discuss all details and finalize, date and time of the move! If you have any question, please do not hesitate to contact our office at 617-319-5700.
+NOTE: Some email servers like HOTMAIL and GMAIL can forward Confirmation email to BULK folder.</div>';
+	 
+	
+	 return $output;
+	
+   }
+   
+  
+  /*** 
+ *    Get Price Function
+***/
+	function movecalc_get_price($date,$movers) {
+		$view = views_get_view('price_table');
+			$peak = movecalc_peak_date($date);
+			$args = array($peak,$movers);
 			$view->set_display('page');
 			$view->set_arguments($args);
 			$view->pre_execute($args);			
 			$view->execute();
 			foreach ($view->result AS $i => $result) {	
-			// dsm($result);				
+			 $price = $result->field_field_price[0]['raw']['value'];				
 			}
-			$view->destroy();	
+		$view->destroy();
+	
+		return $price;
+	
+	}
 
-   }
-  
  /*** 
  *    Date Price Calc
 ***/
@@ -665,13 +738,60 @@ function movecalc_peak_date($mydate) {
 	
 
 	if($dw == 0) { //if sunday
-		$peak = 'Seasonal';
+		$peak = 4;
 	}elseif($dw == 5 || $dw == 6 || $day == 30 || $day == 31 || $day == 29 || $day == 28 ) { //if friday or saturday
-	    $peak = 'Peak';
+	    $peak = 3;
 	}else
-	  $peak = 'Regular';
+	  $peak = 2;
 	 
 	return $peak;
 }
-
-
+//* Create Node Moving Request *//
+function movecalc_create_request(){
+	global $user;
+		// Create an Entity with wrapper
+	$node = entity_create('node', array('type' => 'move_request'));
+	$entity = entity_metadata_wrapper('node',  $node);
+	$node->language = LANGUAGE_NONE;
+	// Add a node title
+	$entity->title = "Move Request on ".$date;
+	 
+	 
+	  // Moving From address information
+	  $entity->field_moving_from->thoroughfare = "asdfasdf";
+	  $entity->field_moving_from->locality = "Misk";
+	  $entity->field_moving_from->administrative_area = "NJ";
+	  $entity->field_moving_from->postal_code = 07304;
+	  $entity->field_moving_from->country = "US";
+	 
+	  // Moving To address information
+	  $entity->field_moving_to->thoroughfare = "asdfasdf";
+	  $entity->field_moving_to->locality = "Misk";
+	  $entity->field_moving_to->administrative_area = "NJ";
+	  $entity->field_moving_to->postal_code = 07304;
+	  $entity->field_moving_to->country = "US";
+	  
+	  //Info
+	  $entity->field_first_name->set("Raman");
+	$entity->field_last_name->set("Guru");
+	$entity->field_e_mail->set("roma4ke@gmail.com"); // mail
+	$entity->field_phone->set(2016808055);  // phone
+	$entity->field_additional_phone->set(2016807055);  // aditionalphone
+	//date
+	$node->field_date['und'][0]['value'] = $date;  // Date of Move
+	$entity->field_start_time->set(2); // Start Time
+	// Move Info
+	$entity->field_price_per_hour->set(144); //Price per Hour
+	$entity->field_estimated_price->set(2); // Estimated Price
+	$entity->field_size_of_move->set(2); // Size of Move
+	$entity->field_type_of_entrance_from->set(2);  // Type of Entrance From
+	$entity->field_type_of_entrance_to_->set(1);  // Type of Entrance To
+	$entity->field_truck->set(2);  //  Type of Truck
+	$entity->field_movers_count->set(2);  // Size of Crew
+	$entity->field_additional_comments->set("lasjdf;lakjdf;alskjdf");  // Additional comments
+	
+	  // Save the entity
+	  $entity->save();
+	
+	//*End
+}
