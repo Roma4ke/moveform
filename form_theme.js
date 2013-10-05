@@ -13,16 +13,16 @@
 			var left, opacity, scale; //fieldset properties which we will 
 			if(Drupal.settings.validate != undefined){
 			var current = $('.'+Drupal.settings.validate.this).parent().parent();
-				validateStep(current);
-			}
-			if(Drupal.settings.calculator != undefined){
+			
+			if(!validateStep(current) &&	Drupal.settings.calculator != undefined){
 						
-				var date = Drupal.settings.calculator.date;
 				var btn = '.'+Drupal.settings.calculator.this;
 				var current = $(btn).parent().parent();
 				//Calculate results			
 				if(Drupal.settings.calculator.step == 'Calculate >>'){
+						$('#result_box').empty();
 						nextstep('#edit-calculator');
+						$('#result_box').append(Drupal.settings.calculator.result_box);
 								 
 					}
 				//Back to steps
@@ -38,7 +38,7 @@
 								 
 					}
 					
-			}
+			}}
 	
 				
 		$('#go-calculator-results-btn').once('next-result').click(function() {
@@ -54,13 +54,13 @@
 		
 		 
 		 
-		 nextstep('#edit-calculator-results');
+		 nextstep(this.parent().parent());
 		 
         return false;
       })
-	  	$('#back-to-calendar-btn').once('calendar-btn').click(function() {
-        
-		 prevstep('#edit-personal-info');
+	  	$('#back-to-calendar-btn,#back-to-calc-btn').once('calendar-btn').click(function() {
+     
+		 prevstep($(this).parent().parent());
 		 
         return false;
       })

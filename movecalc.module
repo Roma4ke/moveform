@@ -147,7 +147,7 @@ function movecalc_menu() {
 	);
 	 $form['calculator_results']['results'] = array (
 	 '#type'=> 'markup',
-	 '#markup' => '',
+	 '#markup' => '<div id="result_box"></div>',
 	 );
 	 //buttons 
 	  $form['calculator_results']['back_to_calculator_btn'] = array (
@@ -496,6 +496,8 @@ moving time.</p>',
 	if(empty($type_from))
 	 return $error_string;
  $extra_rooms = $form_state['values']['Extra_Furnished_Rooms'];	
+ 
+
 
  $Size_of_Move = $form_state['complete form']['calculator']['Size_Move']['#options'][$move_size];
  $Type_From = $form_state['complete form']['calculator']['Type_From']['#options'][$type_from];
@@ -533,8 +535,9 @@ moving time.</p>',
 	  'state_to' => $state_to[1],
 	  'step' => 'Calculate >>',
 	  'this' =>$form_state['clicked_button']['#attributes']['class'][0],
+	  'result_box'=> '',
 	  );	
-	drupal_add_js(array('calculator' => $results), "setting");
+	
 	
 	
 	//* 
@@ -576,7 +579,6 @@ moving time.</p>',
 				</div>
 				<div style="clear:both;"></div>
 				
-				<button class="summery-btn form-submit button button--primary" type="submit" id="go-calculator-results-btn">Make Request &gt;&gt;</button> 
 				</div>
 				';
 			}
@@ -588,7 +590,8 @@ moving time.</p>',
 	 </div>';
 	 
 	 $output = $output.$info_box;
- 
+	$results['result_box'] = $output;
+	 drupal_add_js(array('calculator' => $results), "setting");
  }
  
 /**
