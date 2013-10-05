@@ -35,13 +35,15 @@ function movecalc_menu() {
 	'#title' => 'Moving Calculator',
 	'#type' => 'fieldset',
   );   
-  
+   $form['calculator']['results'] = array (
+	 '#type'=> 'markup',
+	 '#markup' => '<div id="calc-results"></div>',
+	 );
   $form['calculator']['Move_Date'] = array(
    '#title' => t('Date of Move:'),
   '#type' => 'date_popup', // Provided by the date_popup module
   '#date_format' => 'j F Y', // Uses the PHP date() format - http://php.net/manual/en/function.date.php
   '#date_year_range' => 'now:+2', // Limits the year range to the next two upcoming years
-  '#required' => TRUE,
    '#attributes' =>array('class' =>array('required')),
   );
 	
@@ -133,6 +135,7 @@ function movecalc_menu() {
 		  '#ajax' => array(
 		  'callback' => 'movecalc_calculate_results',
 		  'wrapper' => 'calc-results',
+		  "effect" => "fade",
 		),
 		
 		);
@@ -144,18 +147,17 @@ function movecalc_menu() {
 	);
 	 $form['calculator_results']['results'] = array (
 	 '#type'=> 'markup',
-	 '#markup' => '<div id="calc-results"><p>Results sopposed to be here</p></div>',
+	 '#markup' => '',
 	 );
-	 $form['calculator_results']['back_to_calculator'] = array(
-		 '#type' => 'button',
-		 '#value' => '<< Back to Calculator',
-		 '#attributes' =>array('class' =>array('back-calculator-btn')),
-		  '#ajax' => array(
-		  'callback' => 'movecalc_back_step',
-		  'wrapper' => 'RESULTS',
-		),
-		
-		);
+	 //buttons 
+	  $form['calculator_results']['back_to_calculator_btn'] = array (
+	 '#type'=> 'markup',
+	 '#markup' => '<input class="summery-btn form-submit button" type="submit" id="back-to-calc-btn" name="op" value="<< Back to Calculator">',
+	 );
+	 $form['calculator_results']['go_to_info_btn'] = array (
+	 '#type'=> 'markup',
+	 '#markup' => '<input class="summery-btn form-submit button" type="submit" id="go-to-info-btn" name="op" value="Make a Request >>">',
+	 );
 	
      //Personal Info
 	  $form['personal_info'] = array(
@@ -467,47 +469,46 @@ moving time.</p>',
 	 
     return $form;
  }
- /** 
-*   Back Ajax Callback
-*/ 
-	function movecalc_back_step($form,&$form_state){
-	
-		  $results = array(
-		  'step' => '',
-		  'this' =>''
-		  );		
-		 $results['step'] = $form_state['clicked_button']['#value'];
-		 $results['this'] = $form_state['clicked_button']['#attributes']['class'][0];
-		drupal_add_js(array('calculator' => $results), "setting");
-	  
-	}
+
  /** 
 *   Calculate Resulats Ajax Callback First Step
 */ 
  function movecalc_calculate_results($form,&$form_state){
-
+ $error_string = '<div id="calc-results"><p>Please enter all required filds.They have been highlighted.</p></div>';
+ $results['this'] = $form_state['clicked_button']['#attributes']['class'][0];
+ drupal_add_js(array('validate' => $results), "setting");
  $date = $form_state['values']['Move_Date'];
+   if(empty($date))
+	 return $error_string;
  $zip_from = $form_state['values']['Zip_Code_From'];
+	if(empty($zip_from))
+	 return $error_string;
  $zip_to = $form_state['values']['Zip_Code_To'];
+	if(empty($zip_to))
+	 return $error_string;
  $move_size = $form_state['values']['Size_Move'];
+	if(empty($move_size))
+	 return $error_string;
  $type_to = $form_state['values']['Type_To'];
+	if(empty($type_to))
+	 return $error_string;
  $type_from = $form_state['values']['Type_From'];
+	if(empty($type_from))
+	 return $error_string;
  $extra_rooms = $form_state['values']['Extra_Furnished_Rooms'];	
 
  $Size_of_Move = $form_state['complete form']['calculator']['Size_Move']['#options'][$move_size];
  $Type_From = $form_state['complete form']['calculator']['Type_From']['#options'][$type_from];
  $Type_To = $form_state['complete form']['calculator']['Type_To']['#options'][$type_to];
- 	 
-   
-  
- 
-  //save setting for callculate results
-  if($form_state['clicked_button']['#value'] == 'Calculate >>') {
-  
-	 //Adress and distance based on ZIPS
-	//$url = 'http://maps.googleapis.com/maps/api/directions/json?origin='.$zip_from.'&destination='.$zip_to.'&sensor=false';
-	//$result_string = file_get_contents($url);
-	//$decoded_json = json_decode($result_string,true);
+ 	  
+	 //
+	 //If No Error Contine with calculation and population result to next Step 
+	 //
+	 
+	 // Get address and distance based on ZIPS
+	$url = 'http://maps.googleapis.com/maps/api/directions/json?origin='.$zip_from.'&destination='.$zip_to.'&sensor=false';
+	$result_string = file_get_contents($url);
+	$decoded_json = json_decode($result_string,true);
 	
 	$from = $decoded_json['routes'][0]['legs'][0]['start_address'];
 	$to = $decoded_json['routes'][0]['legs'][0]['end_address'];	 
@@ -530,21 +531,10 @@ moving time.</p>',
 	  'state_from'=> $state_from[1],
 	  'city_to'=> $city_to,
 	  'state_to' => $state_to[1],
-	  'step' => '',
-	  'this' =>''
-	  );
-	$results['step'] = 'Calculate >>';
-	$results['this'] = $form_state['clicked_button']['#attributes']['class'][0];
-	
-	
-	
-	
+	  'step' => 'Calculate >>',
+	  'this' =>$form_state['clicked_button']['#attributes']['class'][0],
+	  );	
 	drupal_add_js(array('calculator' => $results), "setting");
-	
-	if($decoded_json['status'] == 'ZERO_RESULTS' || $decoded_json['status'] == 'INVALID_REQUEST') 
-	  return '<div id="calc-results"><p>Zip code you have provided does not exist.</p></div>';
-      
-	// Populate some fields in INFO stage
 	
 	
 	//* 
@@ -598,11 +588,7 @@ moving time.</p>',
 	 </div>';
 	 
 	 $output = $output.$info_box;
-	  
-	 return $output;
-    
-  }
-  
+ 
  }
  
 /**
@@ -650,26 +636,6 @@ moving time.</p>',
 	return $build;
 	}
 	
-/* Validation *
- function movecalc_simple_form_validate($form,&$form_state){
-	if($form_state['values']['Type_To'] == 1 || $form_state['values']['Type_From'] == 1 )
-	  form_set_error('Calculator Alert!','Please choose type of entrance.');
-	  
-	$zip_from = $form_state['values']['Zip_Code_From'];
-	$zip_to = $form_state['values']['Zip_Code_To'];
-
-	$url = 'http://maps.googleapis.com/maps/api/directions/json?origin='.$zip_from.'&destination='.$zip_to.'&sensor=false';
-	$result_string = file_get_contents($url);
-	$decoded_json = json_decode($result_string,true);
-	//dsm($decoded_json);
-	if($decoded_json['status'] == 'ZERO_RESULTS' || $decoded_json['status'] == 'INVALID_REQUEST') {
-	  form_set_error('Alert','Zip code you have provided does not exist.');
-	}else {
-	 $from = $decoded_json['routes'][0]['legs'][0]['start_address'];
-	 $to = $decoded_json['routes'][0]['legs'][0]['end_address'];	 
-	 }
-	 
-}
 
  /**
   * Submint function

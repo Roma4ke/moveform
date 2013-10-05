@@ -5,23 +5,29 @@
 	var w_formId = '#movecalc-moving-form';
 	var animating;
 	Drupal.behaviors.formTheme = {
-		attach:function() {
+		attach: function (context, settings) {
+     // any behavior is now applied once
+    
 		
 			var current_fs, next_fs, previous_fs; //fieldsets
 			var left, opacity, scale; //fieldset properties which we will 
+			if(Drupal.settings.validate != undefined){
+			var current = $('.'+Drupal.settings.validate.this).parent().parent();
+				validateStep(current);
+			}
 			if(Drupal.settings.calculator != undefined){
 						
 				var date = Drupal.settings.calculator.date;
 				var btn = '.'+Drupal.settings.calculator.this;
-				//Calculate results
+				var current = $(btn).parent().parent();
+				//Calculate results			
 				if(Drupal.settings.calculator.step == 'Calculate >>'){
-				
-								 nextstep('#edit-calculator');
+						nextstep('#edit-calculator');
 								 
 					}
 				//Back to steps
 				if(Drupal.settings.calculator.step ==  ('<< Back to Calculator' || '<< Back to Calendar')){
-					var current = $(btn).parent().parent();				
+									
 					prevstep(current);
 			
 				}
@@ -64,7 +70,36 @@
 		 
         return false;
       })
-	 
+	 $( ".required").once('input-element').change(function() {
+		var $this = $(this);
+		$("#calc-results" ).hide();
+			  var valueLength = jQuery.trim($this.val()).length;
+			
+			  if (valueLength != '') {
+				 $this.removeClass('error');
+			  }
+			  if($this.attr( "id" ) == 'edit-zip-code-from' || $this.attr( "id" ) == 'edit-zip-code-to'){
+			    $("#calc-results").empty();
+			     var error = "<span class='title'>Address Alert!</span><p>Zip code you have provided does not exist.</p>";
+				$.get( "http://maps.googleapis.com/maps/api/geocode/json?address="+$this.val()+'&sensor=true', function( data ) {			
+				
+				if(data['status']=='OK' && (data['results'][0]['address_components'][3]['short_name'] == 'US' || data['results'][0]['address_components'][4]['short_name'] == 'US')){
+				  if( $this.attr( "id" ) == 'edit-zip-code-from')
+					$("#calc-results" ).append("Moving From : "+data['results'][0]['formatted_address']).show("slow").delay( 1000 ).hide(2000);	
+				  else 
+					$("#calc-results" ).append("Moving To: "+data['results'][0]['formatted_address']).show("slow").delay( 1000 ).hide(2000);	
+					
+				$this.removeClass('error');
+						}
+				else {
+					$("#calc-results" ).append(error).show("slow").delay( 1000 ).hide(2000);
+						$this.addClass('error');	
+						$this.val('');
+					}
+				});		  
+			  }
+	});
+	
 	  
 	  $('#go-to-summery-btn').once('summery').click(function() {
          
@@ -109,9 +144,9 @@
       })
 					
 			
-		}
-		
-	};
+	}};
+	
+	
 	function nextstep(current) {
 	
 	if(animating) return false;
@@ -144,7 +179,7 @@
 								});
 
 	return false;
-}
+  }
 	function prevstep(current){
 	
 	if(animating) return false;
