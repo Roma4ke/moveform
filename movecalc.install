@@ -1,0 +1,43 @@
+<?php
+
+/* 
+Implement hook_schema() 
+*/
+
+function movecalc_schema() {
+
+	$schema = array();
+	
+	 $schema['price_calendar'] = array(
+    'description' => t('Price type calendar'),
+    'fields' => array(
+     'date' => array(
+       'description' => t('Date of move'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'price_type' => array(
+        'description' => t('Type of Price'),
+        'type' => 'int',
+	    'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+    ),
+	'primary key' => array('date'),
+    );
+		
+	return $schema;
+}
+
+/*
+  * Implements hook_update_N().
+*/
+
+function movecalc_update_7101() {
+   $schema = drupal_get_schema('price_calendar', TRUE);
+  db_create_table('price_calendar', $schema);
+}
+?>
+
