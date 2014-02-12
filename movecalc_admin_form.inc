@@ -15,6 +15,18 @@ function movecalc_show_total($form,&$form_state){
 		 ),
 	
 	);
+	$form['movecalc_regular_info_right_sidebar'] = array(
+		'#title' => t('Regular info in right sidebar of moving form.'),
+		'#type' => 'textarea',
+		'#default_value' => variable_get('movecalc_regular_info_right_sidebar'),
+	
+	);
+		$form['movecalc_storage_info_right_sidebar'] = array(
+		'#title' => t('Storage info in right sidebar of moving form.'),
+		'#type' => 'textarea',
+		'#default_value' => variable_get('movecalc_storage_info_right_sidebar'),
+	
+	);
 	$form['movecalc_size_room_text'] = array(
 		'#title' => t('Size Of Move : Room (description)'),
 		'#type' => 'textarea',

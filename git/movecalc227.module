@@ -1,0 +1,2568 @@
+<?php
+/**
+* Implement hook_menu().
+*/
+
+function movecalc_menu() {	
+    
+	$items['admin/move/settings'] = array (
+	'title' => 'General Settings',
+	'description' => 'Extra settings.',
+	'page callback' => 'drupal_get_form',
+	'page arguments' => array('movecalc_show_total'),
+	'access arguments' => array('administer site configuration'),
+	'file' => 'movecalc_admin_form.inc',
+	);
+	
+	
+	
+	
+	$items['admin/move/calendar'] = array (
+	'title' => 'Price Type Calendar',
+	'description' => 'Extra settings.',
+	'page callback' => 'movecalc_calendar_page_callback',
+	'page arguments' => array(2),
+	'access arguments' => array('administer site configuration'),
+	'file' => 'movecalc_admin_form.inc',
+	);
+	  // Returns AJAX commands if the user has JavaScript turned on.
+	$items['ajax/calendar_update/%'] = array(
+		'title' => 'Ajax callback',
+		'type' => MENU_CALLBACK,
+		'page callback' => 'movecalc_ajax_calendar_update_callback',
+		'page arguments' => array(2),
+		'access arguments' => array('access content'),
+		'delivery callback' => 'ajax_deliver',
+	  );
+	  // Returns AJAX commands if the user has JavaScript turned on.
+	$items['ajax/truck_update/%'] = array(
+		'title' => 'Ajax callback',
+		'type' => MENU_CALLBACK,
+		'page callback' => 'movecalc_ajax_truck_update_callback',
+		'page arguments' => array(2),
+		'access arguments' => array('access content'),
+		'delivery callback' => 'ajax_deliver',
+	  );
+	  $items['ajax/date_update/%'] = array(
+		'title' => 'Ajax callback',
+		'type' => MENU_CALLBACK,
+		'page callback' => 'movecalc_ajax_date_update_callback',
+		'page arguments' => array(2),
+		'access arguments' => array('access content'),
+		'delivery callback' => 'ajax_deliver',
+	  );
+	   $items['ajax/time_update/%'] = array(
+		'title' => 'Ajax callback',
+		'type' => MENU_CALLBACK,
+		'page callback' => 'movecalc_ajax_time_update_callback',
+		'page arguments' => array(2),
+		'access arguments' => array('access content'),
+		'delivery callback' => 'ajax_deliver',
+	  );
+	 $items['ajax/get_price_type/%'] = array(
+	'title' => 'Ajax callback',
+    'page callback' => 'movecalc_get_price_type_ajax',
+    'access callback' => TRUE,
+	'page arguments' => array(3),
+	'delivery callback' => 'ajax_deliver',
+    'type' => MENU_CALLBACK,
+		);
+		
+	$items['ajax/check_user_existance/%'] = array(
+	'title' => 'Ajax callback',
+    'page callback' => 'movecalc_check_user_ajax',
+    'access callback' => TRUE,
+	'page arguments' => array(3),
+	'delivery callback' => 'ajax_deliver',
+    'type' => MENU_CALLBACK,
+		);
+	
+  return $items;	
+	
+} 
+function movecalc_init() {
+
+	if(arg(0) =='admin'){
+		drupal_add_css(drupal_get_path('module', 'movecalc') . "/css/admin.css");
+		 drupal_add_js(drupal_get_path('module', 'movecalc') . '/js/admin.js');   
+	}
+    if(arg(1) == "time-table") {
+        drupal_add_js(drupal_get_path('module', 'movecalc') . '/js/time-table.js');   
+	   
+    }
+	
+}
+/*
+// Our Form will be in Block
+*/
+function movecalc_block_info() {
+        $blocks = array();
+        $blocks['moving_form'] = array(
+                'info' => t('Moving Form'),
+                'cache' => DRUPAL_CACHE_GLOBAL,
+        );
+ 
+        return $blocks;
+}
+function movecalc_block_view($delta='')
+{
+  switch($delta) {
+    case 'moving_form':
+      $block['subject'] = null; 
+      $block['content'] = drupal_get_form('movecalc_moving_form');
+      break;
+   }
+   return $block;
+ }
+
+/** 
+ * A simple form
+*/
+function _movecalc_get_calendar_array($year){
+	$calendar = array();
+	for($y=$year; $y <=$year+1; $y++){
+		for($month = 1; $month <=12; $month++){
+			$running_day = date('N',mktime(0,0,0,$month,1,$year))-1;
+			$days_in_month = date('t',mktime(0,0,0,$month,1,$year));
+			for($list_day = 1; $list_day <= $days_in_month; $list_day++):
+				$date = $y.'-'.$month.'-'.$list_day;
+				$peak = _movecalc_get_peak_type($date);
+				$calendar[$date] = $peak;			
+			endfor;
+		}
+	}
+	
+	return $calendar;
+}
+ function movecalc_moving_form($form,&$form_submit) {
+ libraries_load('easing');
+ $current = date("Y");
+ $calendar = _movecalc_get_calendar_array($current);
+
+ drupal_add_js(array('movecalc' => array('calendar' => $calendar)),'setting');
+ drupal_add_js(drupal_get_path('module', 'movecalc') . '/js/pick_reate_popup.js');
+ drupal_add_js(drupal_get_path('module', 'movecalc') . '/js/maskedinput.js');
+ drupal_add_js(drupal_get_path('module', 'movecalc') . '/js/fancybox.js');
+ drupal_add_js(drupal_get_path('module', 'movecalc') . '/js/qtip.js');	 
+
+ drupal_add_css(drupal_get_path('module', 'movecalc') . "/css/fancybox.css");
+ drupal_add_css(drupal_get_path('module', 'movecalc') . "/css/datepicker.css");
+ 
+  drupal_add_js("http://maps.google.com/maps/api/js?sensor=false&amp;language=en");
+ drupal_add_js(drupal_get_path('module', 'movecalc') . '/js/gmap3.min.js');
+$loading_sprite = drupal_get_path('module', 'movecalc').'/images/477.gif';
+ global $user;
+ 
+ /*	$user_info  = array (
+	'first_name' => "max",
+	'last_name' => "Tihanovich",
+	'email' => "tcihanovich@gmail.com",
+	'password' => 123123123,
+	'phone' => "123123123",
+	'additional_phone' => "123123123",
+	);
+ 
+  movecalc_create_user($user_info);
+  */
+  
+ if($user->uid != 0){
+ 
+	$current_user = user_load($user->uid);
+	$user_first_name = $current_user->field_user_first_name['und'][0]['value'];
+	$user_last_name = $current_user->field_user_last_name['und'][0]['value'];
+	$user_primary_phone = $current_user->field_primary_phone['und'][0]['value'];
+	$user_additional_phone = '';
+	if($current_user->field_user_additional_phone != NULL)
+	$user_additional_phone = $current_user->field_user_additional_phone['und'][0]['value'];
+	$user_mail = $current_user->mail;
+	$user_password = TRUE;
+	$password_required = 'notrequired';
+	}
+ else {
+	$user_first_name = "";
+	$user_last_name = "";
+	$user_mail = "";
+	$user_primary_phone = "";
+	$user_additional_phone = "";
+	$user_password = FALSE;
+	$password_required = 'required';
+	}
+ 
+ // Calculator
+  $form['calculator'] = array(
+	//'#title' => 'Moving Calculator',
+	'#type' => 'fieldset',
+  );   
+   $form['calculator']['results'] = array (
+	 '#type'=> 'markup',
+	 '#prefix' => '<div class="three_block info_block">',
+	 '#markup' => '<div id="calc-results"></div><div id="calc-info-steps">
+	 <div class="calc-intro">
+      <h1 class="calc-intro_heading">Lets get started.</h1>
+      <p class="calc-intro_description">First of all, tell us when and where you are planning to move. Also we need to know size of move and type of entrance. <br>We calculate approximate time and price of your move.</p>
+	 <p class="calc-intro_description red">Calculator provides estimate price only and is subject to change upon specific move details.</p>	
+ </div>
+	
+	<div class="box_info">
+				 <h3 class="moving-date"></h3>
+				 <div class="calc-intro_description"> 
+				 <div class="service-type"></div>
+				 <div class="moving-from"></div>
+				 <div class="moving-to"></div>
+				 <div class="move-size"></div>
+				 <p class="distance"></p>		
+				</div>
+	</div>
+	
+	
+	 </div>',
+	 '#suffix' => '</div>'
+	 );
+  $form['calculator']['Move_Date'] = array(
+  '#prefix' => '<div id="calc_block_er" class="three_block"><div class="form_block calc_form">',
+   '#title' => t('Date of Move:'),
+  '#type' => 'date_popup', // Provided by the date_popup module
+  '#date_format' => 'j F Y', // Uses the PHP date() format - http://php.net/manual/en/function.date.php
+  '#date_year_range' => 'now:+2', // Limits the year range to the next two upcoming years
+   '#attributes' =>array('class' =>array('required')),
+  );
+  
+    $form['calculator']['Service'] = array (
+		'#title' => t('Type of service:'),
+		'#type' => 'select',
+		'#options' => array (
+		 '1' => t('Moving'),
+		 '2' => t('Moving & Storage'),
+		 '3' => t('Loading Help'),
+		 '4' => t('Unloading Help'),
+		 ),
+		 '#attributes' =>array('class' =>array('required')),		
+	 );
+	  $form['calculator']['clear_markup5']= array (
+	 '#type'=> 'markup',
+	 '#markup' => '<div style="clear:both;"></div>',
+	 );	
+   $form['calculator']['Date_Storage'] = array(
+   '#title' => t('Desired or Approximate Date of Delivery:'),
+  '#type' => 'date_popup', // Provided by the date_popup module
+  '#date_format' => 'j F Y', // Uses the PHP date() format - http://php.net/manual/en/function.date.php
+  '#date_year_range' => 'now:+2', // Limits the year range to the next two upcoming years
+   '#attributes' =>array('class' =>array('dd')),
+     '#states' => array(
+		 'visible' => array(':input[name="Service"]'=>array( 
+			array('value' => '2'),
+		 ),
+		 ),
+		 ),
+  );
+	 $form['calculator']['clear_markup6']= array (
+	 '#type'=> 'markup',
+	 '#markup' => '<div style="clear:both;"></div>',
+	 );	
+	$form['calculator']['Zip_Code_From'] = array (
+		'#title' => t('From Zip:'),
+		'#type' => 'textfield',
+		'#maxlength' => 5,
+	     '#size' => 5,
+		'#attributes' =>array('class' =>array('required')),
+	 );
+	  $form['calculator']['Zip_Code_To'] = array (
+		'#title' => t('To Zip:'),
+		'#type' => 'textfield',
+		'#maxlength' => 5,
+	     '#size' => 5,
+		 '#attributes' =>array('class' =>array('required')),
+	 );
+	 $form['calculator']['clear_markup']= array (
+	 '#type'=> 'markup',
+	 '#markup' => '<div style="clear:both;"></div>',
+	 );	
+	   $form['calculator']['Size_Move'] = array (
+		'#title' => t('Size of Move:'),
+		'#type' => 'select',
+		'#options' => array (
+		 '' => t('Size of Move'),
+		 '1' => t('Room'),
+		 '2' => t('Studio'),
+		 '3' => t('Small 1 Bedroom Apartment'),
+		 '4' => t('Large 1 Bedroom Apartment '),
+		 '5' => t('Small 2 Bedroom Apartment'),
+		 '6' => t('Large 2 Bedroom Apartment'),
+		 '7' => t('3 Bedroom Apartment'),
+		 '8' => t('2 Bedroom house/townhouse'),
+		 '9' => t('3 Bedroom house/townhouse'),
+		 '10' => t('4 Bedroom house/townhouse '),
+		 ),
+		 '#attributes' =>array('class' =>array('required')),
+	 );
+	 
+	  $form['calculator']['Extra_Furnished_Rooms'] = array (
+		'#title' => t('Extra Rooms'),
+		'#type' => 'checkboxes',
+		'#options' => array (
+		 '1' => t('living room'),
+		 '2' => t('dining room'),
+		 '3' => t('office'),
+		 '4' => t('extra room'),
+		 '5' => t('basement'),			
+		 ),
+	
+		 '#states' => array(
+		 'visible' => array(':input[name="Size_Move"]'=>array( 
+			array('value' => '1'),
+			array('value' => '2'),
+			array('value' => '3'),
+			array('value' => '4'),
+			array('value' => '5'),
+			array('value' => '6'),
+			array('value' => '7'),
+		 ),
+		 ),
+		 ),
+		 '#default_value' => array(1),
+	 );
+	 
+	 $form['calculator']['Extra_House_Furnished_Rooms'] = array (
+		'#title' => t('Extra Rooms'),
+		'#type' => 'checkboxes',
+		'#options' => array (
+		 '1' => t('living room'),
+		 '2' => t('dinning room'),	
+		 '3' => t('office'),
+		 '4' => t('extra room'),
+		 '5' => t('basement'),		
+		 '6' => t('garage'),
+		 '7' => t('patio'),
+		 '8' => t('play room'),		
+		 ),
+		 '#states' => array(
+		 'visible' => array(':input[name="Size_Move"]'=>array( 
+			array('value' => '8'),
+			array('value' => '9'),
+			array('value' => '10'),
+		 ),
+		 ),
+		 ),
+		 '#default_value' => array(1,2),
+		 
+	 );
+	 
+	 
+	  $form['calculator']['clear_markup2']= array (
+	 '#type'=> 'markup',
+	 '#markup' => '<div style="clear:both;"></div>',
+	 );	
+	 
+	 $form['calculator']['Type_From'] = array (
+		'#title' => t('Type of entrance (From):'),
+		'#type' => 'select',
+		'#options' => array (
+		 '' => t('From Type'),
+		 '1' => t('1st/Ground Floor'),
+		 '2' => t('2nd Floor Walk-Up'),
+		 '3' => t('3rd Floor Walk-Up'),
+		 '4' => t('4th Floor Walk-Up'),
+		 '5' => t('5th Floor Walk-Up'),
+		 '6' => t('Elevator Bld.'),
+		 '7' => t('Private House'),
+		 ),
+		 '#attributes' =>array('class' =>array('required')),	 
+	 );
+	 $form['calculator']['Type_To'] = array (
+		'#title' => t('Type of entrance (To):'),
+		'#type' => 'select',
+		'#options' => array (
+		 '' => t('To Type'),
+		 '1' => t('1st/Ground Floor'),
+		 '2' => t('2nd Floor Walk-Up'),
+		 '3' => t('3rd Floor Walk-Up'),
+		 '4' => t('4th Floor Walk-Up'),
+		 '5' => t('5th Floor Walk-Up'),
+		 '6' => t('Elevator Bld.'),
+		  '7' => t('Private House'),
+		 ),
+		 '#attributes' =>array('class' =>array('required')),	
+	);
+	
+		$form['calculator']['calculate'] = array(
+		 '#type' => 'button',
+		 '#suffix' => '</div></div>',
+		 '#value' => 'Calculate >>',
+		 '#attributes' =>array('class' =>array('calculate-btn')),
+		  '#ajax' => array(
+		  'callback' => 'movecalc_calculate_results',
+		  'wrapper' => 'calc-results',
+		  "effect" => "fade",
+		  
+		),);
+	
+		   $form['calculator']['calc_info'] = array (
+			 '#type'=> 'markup',
+			 '#prefix' => '<div class="three_block">',
+			 '#markup' => '<div id="calc-results2">
+			 <div class="calc-intro-info">		 
+			  <h2>Size of Move</h2>
+			  <strong>Please dont underestimate size of your move!</strong>
+			  <p class="calc-intro_description"> Make your choice wisely! It helps us meet our schedule and keeps you out
+			of unexpected surprises. Size of your aprtment, Small or Large,
+			<strong>depends on the ammount of furniture and misclellaneous
+			items, that have to be moved!</strong> NOT on square footage!
+			<p>
+		 <p class="calc-intro_description">	Please choose <strong>"Large"</strong> rather than <strong>"Small"</strong>, if you furniture 
+			includes a lot of bulky, over-sized, antique items, ones with glass,
+			marble and/or that require a lot of disassembling/rerassembling. 
+			That all require extra care and time to handle and in most cases 
+			we recommend additionall mover for more efficiency of your move.
+			</p>
+			<h2>Type of Entrance</h2>
+			 <p class="calc-intro_description">If your 1st/ground floor apartment/house is located on a hill, and
+			involves outside stairs, please choose type of entrance accordingly
+			to how many steps you have. NOT 1st/grounf floor. One flight 
+			usually consists of 10-12 steps.</p>
+			</div>
+			</p>
+			
+			 </div>',
+			 '#suffix' => '</div>'
+			 );
+		
+		
+		
+	//Calculator Result
+	 $form['calculator_results'] = array(
+	'#type' => 'fieldset',
+	);
+	 $form['calculator_results']['results'] = array (
+	 '#type'=> 'markup',
+	 '#markup' => '<div id="result_box"></div>',
+	 );
+	 //buttons 
+	
+	
+ 
+
+	  $form['personal_info'] = array(
+	//'#title' => 'Persanol Information and Moving Details',
+	'#type' => 'fieldset',
+	);
+	    //Personal Info
+	 $form['personal_info']['message_info'] = array (
+	 '#type'=> 'markup',
+	 '#markup' => '<div id="message-alert">Please  continue with this part if you dont have an account yet.</div>',
+	 );
+	$form['personal_info']['alert'] = array (
+	 '#type'=> 'markup',
+	 '#markup' => '<div id="summery-alert"></div>',
+	 );
+
+	  $form['personal_info']['email_login'] = array (
+	 '#title' => t('I already have an account!'),
+	 '#prefix' => '<div class="four_block login_block dis-'.$user_password.'">',
+		'#type' => 'textfield',
+		 '#size' => 255,
+		 '#attributes' =>array('placeholder' => t('Your Email'),'class' =>array('login-email dis-'.$user_password)),
+	  '#disabled' => $user_password,
+		 
+	 );	
+	  $form['personal_info']['passowrd_login'] = array(
+		'#type' => 'password', 
+		'#attributes' =>array('placeholder' => t('Password'),'class' =>array("user-login")),
+		'#maxlength' => 64, 
+		'#size' => 15,
+		
+		'#disabled' => $user_password,
+		);
+	   $form['personal_info']['login_btn'] = array (
+	 '#type'=> 'markup',
+	 '#markup' => '<div class="login-forgot"><a href ="http://'.$_SERVER["HTTP_HOST"].'/user/password" target="_blank">Forgot password?</a></div><a href="#" class="button"  id="request_user_login">Login</a><div class="login-alert"><img src="'.$loading_sprite.'"></div><div class="message-alert"></div>',
+	);
+	
+	 $form['personal_info']['login_clear_markup']= array (
+	 '#type'=> 'markup',
+	 '#markup' => '<div style="clear:both;"></div>',
+	 );	
+	  $form['personal_info']['account_login_info'] = array (
+			 '#type'=> 'markup',
+			 '#markup' => '<div class="account_info">		 
+			  <h2>Why create an account with us ?</h2>
+				<ul>
+				<li>Easy track your move statuses</li>
+				<li>Easy update and or change move information</li>
+				<li>Confirm or schedule your current request</li>
+				<li>Access to your move histories</li>
+				<li>Receive points and discounts and many more...</li>
+				</ul>
+			 </div>',
+			 '#suffix' => '</div>'
+			 );
+	
+	
+	 $form['personal_info']['first_name'] = array (
+	 '#title' => t('Personal Info'),
+	 '#default_value' => $user_first_name,
+	 '#prefix' => '<div class="four_block user-info dis-'.$user_password.'">',
+		'#type' => 'textfield',
+		 '#size' => 15,
+		 '#attributes' =>array('placeholder' => t('First Name*'),'class' =>array('required')),
+		 '#disabled' => $user_password,
+		 
+	 );	 
+	  $form['personal_info']['last_name'] = array (
+		'#type' => 'textfield',
+		'#default_value' => $user_last_name,
+		 '#size' => 15,
+		 '#attributes' =>array('placeholder' => t('Last Name*'),'class' =>array('required')),
+		 '#disabled' => $user_password,
+	 );
+	  $form['personal_info']['primary_phone'] = array (
+		'#type' => 'textfield',
+		'#id' => 'primary_phone',
+		'#default_value' => $user_primary_phone,
+		 '#size' => 15,
+		 '#attributes' =>array('placeholder' => t('Primary Phone*'),'class' =>array('required')),
+		 '#disabled' => $user_password,
+	 );
+	   $form['personal_info']['additional_phone'] = array (
+		'#type' => 'textfield',	
+		'#default_value' => $user_additional_phone,
+		 '#size' => 15,
+		 '#attributes' =>array('placeholder' => t('Additional Phone (optional)')),
+		 '#disabled' => $user_password,
+	 );
+	 $form['personal_info']['email'] = array(
+		'#type' => 'textfield',
+		'#attributes' =>array('placeholder' => t('Email*'),'class' =>array($password_required)),
+		'#default_value' => $user_mail,	
+		'#size' => 20,
+		'#maxlength' => 180,
+		'#disabled' => $user_password,
+		);
+		$form['personal_info']['passowrd_signup'] = array(
+		'#type' => 'password', 
+		'#attributes' =>array('placeholder' => t('Account Password'),'class' =>array($password_required.' dis-'.$user_password)),
+		'#maxlength' => 64, 
+		'#size' => 15,
+		'#disabled' => $user_password,
+		);
+	 $form['personal_info']['confirm_passowrd_signup'] = array(
+		'#type' => 'password', 
+		'#attributes' =>array('placeholder' => t('Confirm Account Password'),'class' =>array($password_required.' dis-'.$user_password)),
+		'#maxlength' => 64, 
+		'#size' => 15,
+		'#suffix' => '</div>',
+		'#disabled' => $user_password,
+		);
+	// Moving From
+	$form['personal_info']['moving_from'] = array (
+	'#prefix' => '<div class="four_block block_from dis-'.$user_password.'">',
+	 '#title' => t('Moving From'),
+		'#type' => 'textfield',
+		 '#size' => 15,
+		 '#attributes' =>array('placeholder' => t('From Address'),'class' =>array('required')),
+	 );	 
+	 $form['personal_info']['moving_from_apt'] = array (
+		'#attributes' =>array('placeholder' => t('Apt (optional)'),'class' =>array('apt')),
+		'#type' => 'textfield',
+		'#maxlength' => 5,
+	     '#size' => 5,
+	 );
+	 $form['personal_info']['moving_from_zip'] = array (
+		'#attributes' =>array('placeholder' => t('From Zip'),'class' =>array('required')),
+		'#type' => 'textfield',
+		'#maxlength' => 5,
+	     '#size' => 5,
+	 );
+	  $form['personal_info']['moving_from_city'] = array (
+		'#attributes' =>array('placeholder' => t('From City'),'class' =>array('required')),
+		'#type' => 'textfield',	
+	 );
+	 $form['personal_info']['moving_from_state'] = array (
+		'#type' => 'select',
+		'#options' => array(
+	'' => t('Select State'),
+	'AL' => t('Alabama'),
+	'AK' => t('Alaska'),
+	'AZ' => t('Arizona'),
+	'AR' => t('Arkansas'),
+	'CA' => t('California'),
+	'CO' => t('Colorado'),
+	'CT' => t('Connecticut'),
+	'DE' => t('Delaware'),
+	'DC' => t('District of Columbia'),
+	'FL' => t('Florida'),
+	'GA' => t('Georgia'),
+	'HI' => t('Hawaii'),
+	'ID' => t('Idaho'),
+	'IL' => t('Illinois'),
+	'IN' => t('Indiana'),
+	'IA' => t('Iowa'),
+	'KS' => t('Kansas'),
+	'KY' => t('Kentucky'),
+	'LA' => t('Louisiana'),
+	'ME' => t('Maine'),
+	'MD' => t('Maryland'),
+	'MA' => t('Massachusetts'),
+	'MI' => t('Michigan'),
+	'MN' => t('Minnesota'),
+	'MS' => t('Mississippi'),
+	'MO' => t('Missouri'),
+	'MY' => t('Montana'),
+	'NE' => t('Nebraska'),
+	'NV' => t('Nevada'),
+	'NH' => t('New Hampshire'),
+	'NJ' => t('New Jersey'),
+	'NM' => t('New Mexico'),
+	'NY' => t('New York'),
+	'NC' => t('North Carolina'),
+	'ND' => t('North Dakota'),
+	'OH' => t('Ohio'),
+	'OK' => t('Oklahoma'),
+	'OR' => t('Oregon'),
+	'PA' => t('Pennsylvania'),
+	'RI' => t('Rhode Island'),
+	'SC' => t('South Carolina'),
+	'SD' => t('South Dakota'),
+	'TN' => t('Tennessee'),
+	'TX' => t('Texas'),
+	'UT' => t('Utah'),
+	'VT' => t('Vermont'),
+	'VA' => t('Virginia'),
+	'WA' => t('Washington'),
+	'WV' => t('West Virginia'),
+	'WI' => t('Wisconsin'),
+	'WY' => t('Wyoming'),
+	),
+	'#suffix' => '</div>',
+	);
+	 
+	 // Moving To 
+	 
+	 $form['personal_info']['moving_to'] = array (
+	  '#prefix' => '<div class="four_block block_from dis-'.$user_password.'">',
+	  '#title' => t('Moving To:'),
+		'#type' => 'textfield',
+		 '#size' => 15,
+		 '#attributes' =>array('placeholder' => t('To Address'),'class' =>array('required')),
+	 );
+	  $form['personal_info']['moving_to_apt'] = array (
+		'#type' => 'textfield',
+		'#maxlength' => 5,
+	     '#size' => 5,
+		  '#attributes' =>array('placeholder' => t('Apt (optional)'),'class' =>array('apt')),
+	 );
+	  $form['personal_info']['moving_to_zip'] = array (
+		'#attributes' =>array('placeholder' => t('To Zip'),'class' =>array('required')),
+		'#type' => 'textfield',
+		'#maxlength' => 5,
+	     '#size' => 5,
+	 );
+	   $form['personal_info']['moving_to_city'] = array (
+		'#attributes' =>array('placeholder' => t('To City'),'class' =>array('required')),
+		'#type' => 'textfield',
+	 );
+	 $form['personal_info']['moving_to_state'] = array (
+		'#type' => 'select',
+		'#options' => array(
+	'' => t('Select State'),
+	'AL' => t('Alabama'),
+	'AK' => t('Alaska'),
+	'AZ' => t('Arizona'),
+	'AR' => t('Arkansas'),
+	'CA' => t('California'),
+	'CO' => t('Colorado'),
+	'CT' => t('Connecticut'),
+	'DE' => t('Delaware'),
+	'DC' => t('District of Columbia'),
+	'FL' => t('Florida'),
+	'GA' => t('Georgia'),
+	'HI' => t('Hawaii'),
+	'ID' => t('Idaho'),
+	'IL' => t('Illinois'),
+	'IN' => t('Indiana'),
+	'IA' => t('Iowa'),
+	'KS' => t('Kansas'),
+	'KY' => t('Kentucky'),
+	'LA' => t('Louisiana'),
+	'ME' => t('Maine'),
+	'MD' => t('Maryland'),
+	'MA' => t('Massachusetts'),
+	'MI' => t('Michigan'),
+	'MN' => t('Minnesota'),
+	'MS' => t('Mississippi'),
+	'MO' => t('Missouri'),
+	'MY' => t('Montana'),
+	'NE' => t('Nebraska'),
+	'NV' => t('Nevada'),
+	'NH' => t('New Hampshire'),
+	'NJ' => t('New Jersey'),
+	'NM' => t('New Mexico'),
+	'NY' => t('New York'),
+	'NC' => t('North Carolina'),
+	'ND' => t('North Dakota'),
+	'OH' => t('Ohio'),
+	'OK' => t('Oklahoma'),
+	'OR' => t('Oregon'),
+	'PA' => t('Pennsylvania'),
+	'RI' => t('Rhode Island'),
+	'SC' => t('South Carolina'),
+	'SD' => t('South Dakota'),
+	'TN' => t('Tennessee'),
+	'TX' => t('Texas'),
+	'UT' => t('Utah'),
+	'VT' => t('Vermont'),
+	'VA' => t('Virginia'),
+	'WA' => t('Washington'),
+	'WV' => t('West Virginia'),
+	'WI' => t('Wisconsin'),
+	'WY' => t('Wyoming'),
+	),
+	'#suffix' => '</div>',
+	);
+		 // additional info
+	  $form['personal_info']['prefered_time'] = array (
+	  '#prefix' => '<div class="four_block time_block">',
+		'#title' => t('Preferred Start Time:'),
+		'#type' => 'select',
+		'#options' => array (
+		 '1' => t('Any Time'),
+		 '2' => t('Morning 9AM'),
+		 '3' => t('Noon 11AM-4PM'),
+		 '4' => t('Afternoon 3PM-7PM'),
+		 ),
+		'#suffix' => '</div>'
+		
+	);	
+	 $form['personal_info']['poll_info']= array (
+	 '#title' => t('How did you hear about us? *'),
+	   '#prefix' => '<div class="four_block time_block dis-'.$user_password.'">',
+	 '#type' => 'radios',
+		'#options' => array (
+		 'radio-value-1' => t('Yelp'),
+		 '2' => t('AngelList'),
+		 '3' => t('Google search'),
+		 '4' => t('Friend'),
+		 '5' => t('Local advert'),
+		 '6' => t('Other'),
+		 ),
+		'#suffix' => '</div>'
+	 );	
+	 
+	 $form['personal_info']['clear_markup']= array (
+	 '#type'=> 'markup',
+	 '#markup' => '<div style="clear:both;"></div>',
+	 );	
+
+	 //calc results hidden
+	 $form['personal_info']['movers_crew']= array (
+	 '#type'=> 'hidden',
+	 '#default_value'=> '',
+	 
+	 );	
+	 $form['personal_info']['price_per_hour']= array (
+	 '#type'=> 'hidden',
+	 '#default_value'=> ''
+	 );	
+	 $form['personal_info']['min_time']= array (
+	 '#type'=> 'hidden',
+	'#default_value'=> ''
+	 );
+	$form['personal_info']['max_time']= array (
+	 '#type'=> 'hidden',
+	 );		 
+	 $form['personal_info']['estimated_price']= array (
+	 '#type'=> 'hidden',
+	 );	
+	 $form['personal_info']['truck']= array (
+	 '#type'=> 'hidden',
+	 
+	 );	
+	  $form['personal_info']['distance']= array (
+	 '#type'=> 'hidden',
+	 );	
+	 $form['personal_info']['duration']= array (
+	 '#type'=> 'hidden',
+	 );	
+	 $form['personal_info']['travel_time']= array (
+	 '#type'=> 'hidden',
+	 );	
+	 
+	 
+	 // additinal comments
+	 $form['personal_info']['comments_about_move'] = array (
+	'#prefix' => '<div class="four2_block">',
+	 '#title' => t('Additional Comments/Requests:'),
+	 '#type' => 'textarea',
+	'#rows' => 2
+	
+	 );	
+	 $form['personal_info']['add_comments_info']= array (
+	 '#type'=> 'markup',
+	 '#markup' => '<p>Please include information on heavy, oversized or fragile items, narrow stairways or halls,
+long walk ways, extra stops (including address), or anything else that may affect the
+moving time.</p>',
+	'#suffix' => '</div>',	
+	 );	
+	 
+	 
+	 //buttons 
+	  $form['personal_info']['back_to_calendar_btn'] = array (
+	 '#type'=> 'markup',
+	 '#markup' => '<input class="summery-btn form-submit button" type="submit" id="back-to-calendar-btn" name="op" value="<< Back to Calendar">',
+	 );
+	$form['personal_info']['go_to_summery'] = array(
+		 '#type' => 'button',
+		 '#value' => 'Continue to Summary >>',
+		 '#attributes' =>array('class' =>array('summery-btn')),
+		  '#ajax' => array(
+		  'callback' => 'movecalc_summery_results',
+		  'wrapper' => 'summery-alert',
+		  "effect" => "fade",
+		),);
+	 
+	 //*Summery
+	   $form['summery'] = array(
+	//'#title' => 'Summery Review',
+	'#type' => 'fieldset',
+	);
+	$form['summery']['summery_results'] = array (
+	 '#type'=> 'markup',
+	 '#markup' => '<div id="summery_results"></div>',
+	 );
+	 //buttons 
+	 $form['summery'] ['submit'] = array(
+	 '#type' => 'submit',
+	 '#value' => 'Submit Moving Request',
+	  '#ajax' => array(
+		  'callback' => 'movecalc_confirm_step',
+		  'wrapper' => 'confirmation_block',
+		),
+	 );
+	 //*Summery
+	  $form['confirmation'] = array(
+	//'#title' => 'Confirmation',
+	'#type' => 'fieldset',
+	);
+	$form['confirmation']['confirmation_message'] = array (
+	 '#type'=> 'markup',
+	 '#markup' => '<div id="confirmation_block"></div>',
+	 );
+	 
+	 
+	 // Get the path to the module
+	$path = drupal_get_path('module', 'movecalc');
+	// Attach the CSS and JS to the form
+	$form['#attached'] = array
+	(
+		'css' => array
+		(
+			'type' => 'file',
+			'data' => $path . '/form_theme.css',
+		),
+		'js' => array
+		(
+			'type' => 'file',
+			'data' => $path . '/form_theme.js',
+		),
+	);
+	 
+    return $form;
+ }
+
+//** Calcuelte Helper Function *//
+ function movecalc_get_time($zip_from,$zip_to,&$results){
+	 
+	$url = 'http://maps.googleapis.com/maps/api/directions/json?origin='.$zip_from.'&destination='.$zip_to.'&sensor=false';
+
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL,$url);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	$result = curl_exec($ch);
+	$decoded_json = json_decode($result,true);
+	
+
+	$from = $decoded_json['routes'][0]['legs'][0]['start_address'];
+	$to = $decoded_json['routes'][0]['legs'][0]['end_address'];	 
+	$distance = round($decoded_json['routes'][0]['legs'][0]['distance']['value'] / 1609.34);   //Distance from Zip To Zip in miles
+	$duration = round($decoded_json['routes'][0]['legs'][0]['duration']['value'] / 3600,1); // Apr. Driving Time. 
+		if($duration < 0.25) 
+			$duration = 0.25;
+	$duration_text = $decoded_json['routes'][0]['legs'][0]['duration']['text'];
+	
+	$travel_time = movecalc_travel_time($zip_from,$zip_to);
+	$travel_time_min = $travel_time;
+	$flat_rate = false;
+	if($travel_time > 3){
+		$flat_rate = movecalc_get_flat_rate($zip_from,$zip_to,$move_size);
+	}
+	
+	
+	$location_from = explode(',', $from, -1);
+	$location_to = explode(',', $to, -1);
+	$city_from = $location_from[0];
+	$state_from = explode(' ', $location_from[1],-1);
+	$city_to = $location_to[0];
+	$state_to = explode(' ', $location_to[1],-1);
+	
+
+	$results = array(
+	  'travel_time' =>$travel_time_min,
+	  'to' =>$to,
+	  'from' => $from,
+	  'distance'=> $distance,
+	  'duration'=> $duration,
+	  'zip_from' => $zip_from,
+	  'zip_to' =>$zip_to,
+	  'city_from' => $city_from,
+	  'state_from'=> $state_from[1],
+	  'city_to'=> $city_to,
+	  'state_to' => $state_to[1],
+	  );	
+	  
+}
+
+ /** 
+*   Calculate Resulats Ajax Callback First Step
+*/ 
+ function movecalc_calculate_results($form,&$form_state){
+ 
+
+ 
+ $error_string = '<div id="calc-results">
+ <div class="calc-intro">
+      <h1 class="calc-intro_heading">Oops!</h1>
+      <p class="calc-intro_description">Please enter all required filds.They have been highlighted.</p>
+ </div>
+ <div class="box_info">
+				 <h3 class="moving-date"></h3>
+				 <div class="calc-intro_description"> 
+				 <div class="moving-from"></div>
+				 <div class="moving-to"></div>
+				 <div class="move-size"></div>
+					
+				</div>
+	</div>
+ </div>';
+
+ $results['this'] = $form_state['clicked_button']['#attributes']['class'][0];
+ drupal_add_js(array('validate' => $results), "setting");
+ $date = $form_state['values']['Move_Date'];
+   if(empty($date))
+	 return $error_string;
+ $zip_from = $form_state['values']['Zip_Code_From'];
+ $zip_to = $form_state['values']['Zip_Code_To'];
+ $move_size = $form_state['values']['Size_Move'];
+	if(empty($move_size))
+	 return $error_string;
+ $type_to = $form_state['values']['Type_To'];
+ $type_from = $form_state['values']['Type_From'];
+ $extra_rooms = $form_state['values']['Extra_Furnished_Rooms'];
+ $house_extra_rooms = $form_state['values']['Extra_House_Furnished_Rooms'];	 
+ $service_type = $form_state['values']['Service'];
+ $Type_of_Service = $form_state['complete form']['calculator']['Service']['#options'][$service_type];
+ $extra_room_text = movecalc_room_text($extra_rooms,$form_state);
+ $date = date("Y-n-j", strtotime($date)); //date without leading zero
+ $Size_of_Move = $form_state['complete form']['calculator']['Size_Move']['#options'][$move_size];
+ $Type_From = $form_state['complete form']['calculator']['Type_From']['#options'][$type_from];
+ $Type_To = $form_state['complete form']['calculator']['Type_To']['#options'][$type_to];
+ 	  
+	 //
+	 //If No Error Contine with calculation and population result to next Step 
+	 //
+	 	 // Get address and distance based on ZIPS
+if($service_type == 3){
+	$zip_to = $zip_from;
+	$type_to = 1;
+	}
+if($service_type == 4){
+	$zip_from = $zip_to;
+	$type_from = 1;
+	}
+	
+// -> zip_from and zip_to
+
+     movecalc_get_time($zip_from,$zip_to,&$results);
+	 
+	$url = 'http://maps.googleapis.com/maps/api/directions/json?origin='.$zip_from.'&destination='.$zip_to.'&sensor=false';
+
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL,$url);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	$result = curl_exec($ch);
+	$decoded_json = json_decode($result,true);
+	
+
+	$from = $decoded_json['routes'][0]['legs'][0]['start_address'];
+	$to = $decoded_json['routes'][0]['legs'][0]['end_address'];	 
+	$distance = round($decoded_json['routes'][0]['legs'][0]['distance']['value'] / 1609.34);   //Distance from Zip To Zip in miles
+	$duration = round($decoded_json['routes'][0]['legs'][0]['duration']['value'] / 3600,1); // Apr. Driving Time. 
+		if($duration < 0.25) 
+			$duration = 0.25;
+	$duration_text = $decoded_json['routes'][0]['legs'][0]['duration']['text'];
+	
+	$travel_time = movecalc_travel_time($zip_from,$zip_to);
+	$travel_time_min = $travel_time;
+	$flat_rate = false;
+	if($travel_time > 3){
+		$flat_rate = movecalc_get_flat_rate($zip_from,$zip_to,$move_size);
+	}
+	
+	
+	$location_from = explode(',', $from, -1);
+	$location_to = explode(',', $to, -1);
+	$city_from = $location_from[0];
+	$state_from = explode(' ', $location_from[1],-1);
+	$city_to = $location_to[0];
+	$state_to = explode(' ', $location_to[1],-1);
+	
+
+	$results = array(
+	  'from' => $from,
+	  'date' => $date,
+	  'zip_from' => $zip_from,
+	  'zip_to' =>$zip_to,
+	  'city_from' => $city_from,
+	  'state_from'=> $state_from[1],
+	  'city_to'=> $city_to,
+	  'state_to' => $state_to[1],
+	  'step' => 'Calculate >>',
+	  'this' =>$form_state['clicked_button']['#attributes']['class'][0],
+	  'result_box'=> '',
+	  );	
+	  
+//=> array $results [dist,travel time, duration text, duration, from, to , distane. and so on
+
+	//*Get Moving size Koficient if not house
+	if($move_size <= 7) {
+//=> type_from , type_to, $extra_rooms	
+	 $room_count = movecalc_room_count($extra_rooms);
+	
+			$view_k = views_get_view('table_kof');
+			$args_k= array($move_size);
+			$view_k->set_display('block_1');
+			$view_k->pre_execute($args_k);
+			$view_k->execute();
+			$kof = $view_k->result[0]->field_field_koficient[0]['raw']['value'];
+			$view_k->destroy();			
+	
+	//* 
+	///Get Calculation for Room and then multiply on Size Kof.
+			$view = views_get_view('move_time_table');
+			$args = array(1,$type_from,$type_to);			
+			$view->set_display('page');	
+			$view->pre_execute($args);			
+			$view->execute();
+			$info_box = '';
+			foreach ($view->result AS $i => $result) {	
+					if($i == 0) {
+					
+					$max_time = $kof*($result->field_field_max_loading_time[0]['raw']['value'] + $result->field_field_max_unloading_time[0]['raw']['value']);	
+					$extar_room_time = $room_count*($result->field_field_min_loading_time[0]['raw']['value'] + $result->field_field_min_unloading_time[0]['raw']['value']);
+					
+					$work_time = $max_time + $extar_room_time;
+					$crew = _movecalc_get_moving_crew_kof($move_size,$type_from,$type_to,$work_time);				
+					$crew_kof = _movecalc_get_crew_kof($crew);
+
+					$min_time = $kof*($result->field_field_min_loading_time[0]['raw']['value'] + $result->field_field_min_unloading_time[0]['raw']['value']) / $crew_kof ;
+					$max_time = $kof*($result->field_field_max_loading_time[0]['raw']['value'] + $result->field_field_max_unloading_time[0]['raw']['value']) / $crew_kof ;
+					
+				
+					
+					
+				
+					$extar_room_time = $room_count*($result->field_field_min_loading_time[0]['raw']['value'] + $result->field_field_min_unloading_time[0]['raw']['value'])/$crew_kof;
+				  
+					$truck = $result->field_field_truck[0]['rendered']['#markup'];
+					$truck_id = $result->field_field_truck[0]['raw']['value'];		
+					
+					$price = movecalc_get_price($date,$crew);
+					
+						if($service_type == 1) {
+							$total_min_time_raw =	round($min_time  + $duration + $travel_time,2) +  $extar_room_time;
+							$total_max_time_raw = round($max_time  + $duration + $travel_time,2) +  $extar_room_time;
+						}
+						elseif( $service_type == 3){ // Loading Help
+							$total_min_time_raw =	round($min_time/2  + $travel_time,2) +  $extar_room_time/2;
+							$total_max_time_raw = round($max_time/2 + $travel_time,2) +  $extar_room_time/2;
+						
+						}
+						elseif( $service_type == 4){ // UnLoading Help
+							$total_min_time_raw =	round($min_time/2  + $travel_time,2) +  $extar_room_time/2;
+							$total_max_time_raw = round($max_time/2  + $travel_time,2) +  $extar_room_time/2;
+						}
+					
+					}
+				}
+				$view->destroy();	
+		
+		}else //if TownHouse
+		{
+				$house_room_count = movecalc_room_count($house_extra_rooms);
+				
+				$view = views_get_view('move_time_table');
+				$args = array($move_size,$house_room_count);			
+				$view->set_display('page_2');	
+		
+				$view->pre_execute($args);			
+				$view->execute();
+				foreach ($view->result AS $i => $result) {	
+					if($i == 0) {
+					
+						$max_time = $result->field_field_max_loading_time[0]['raw']['value'] + $result->field_field_max_unloading_time[0]['raw']['value'];
+						$min_time = $result->field_field_min_loading_time[0]['raw']['value'] + $result->field_field_min_unloading_time[0]['raw']['value'];
+						$truck = '';					
+						foreach ($result->field_field_truck as $key => $value) {						
+							if($key == 0 )
+								$truck = $truck.' '.$value['rendered']['#markup'];
+							else
+								$truck = $truck.' and '.$value['rendered']['#markup'];
+							$tid = $value['raw']['value'];	
+							$truck_id[$key] = $tid;
+						}
+				
+						$price = $result->field_field_townhouse_rate[0]['raw']['value'];
+						$crew = $result->field_field_townhouse_movers_count[0]['raw']['value'];
+						$total_min_time_raw =	round($min_time  + $duration + $travel_time,2) ;
+						$total_max_time_raw = round($max_time  + $duration + $travel_time,2) ;
+						
+					}
+				}
+				$view->destroy();	
+				
+		}
+		
+				
+				
+				$total_min_time = get_readable_time($total_min_time_raw);
+				if($total_min_time < 2)
+					$total_min_time = '2 <span>hrs</span>';
+				$total_max_time = get_readable_time($total_max_time_raw);	   		
+				if($total_max_time < 2)
+					$total_max_time = '2 <span>hrs</span> 30 <span>min</span>';
+					
+				
+				$total_min_price = get_pricable_time($total_min_time_raw);	
+					if($total_min_price < 2)
+						$total_min_price = 2;
+				$total_max_price = get_pricable_time($total_max_time_raw);	
+					if($total_max_price < 2)
+						$total_max_price = 2.5;
+					
+					
+					
+				$viewDate = date("l, M j, Y",strtotime($date));
+				
+				//* 
+				///SHOW CALCULATE RESULTS HERE 
+				$total_price_box= '';
+				//*Show Total Box
+				$total_box = variable_get('movecalc_show_total');			
+				if($total_box[1] == 1){
+					$total_price_box = '
+					<div class="box_info">
+					<h3 class="moving-date est-quote">ESTIMATED QUOTE : <span>$'.$total_min_price*$price.' - $'.$total_max_price*$price.'</span></h3>
+					</div>';
+				
+				}
+				
+				
+				$info_box = '<div class="calc_block three_block"><div class="form_block">
+				
+				<div class="box_info">
+				<h3 class="moving-date">Move Date : <span>'.$viewDate.'</span></h3>
+				<h3 class="moving-date">Type of Service: <span>'.$Type_of_Service.'</span></h3>
+				<h3 class="moving-date">Size of Move : <span> '.$Size_of_Move.'</span><span class="calc-intro_description">'.$extra_room_text.'</span> </h3>
+							
+				</div>';
+				
+				$info_box_regular ='
+				<div class="box_info">
+				<h3 class="moving-date">Crew Size : <span> '.$crew.' movers</span></h3>
+				<h3 class="moving-date">Truck : <span> '.$truck.'</span></h3>
+				<h3 class="moving-date travel-time">Travel Time : <span> '.get_readable_time($travel_time_min).'</span></h3>
+				<span class="calc-intro_description">(This is the time that takes for the movers to get to and from
+your address to our office.It is always fixed and doesnt depend on the traffic conditions).
+				</span> 
+	
+				<h3 class="moving-date rate">HOURLY RATE : <span> $'.$price.'/hr</span></h3>
+				<span class="calc-intro_description">(Includes basic materials: use of moving pads, tape, shrink wrap,
+				mattress covers. There is no additional charge for gas, mileage,
+				tolls, stairs, heavy and over-sized items or hoisting).
+				</span> 
+				
+				<h3 class="moving-date est-time"><div>ESTIMATED MOVING TIME :</div> <span>'.$total_min_time .' - '.$total_max_time.'</span></h3>
+				<span class="calc-intro_description">(Includes driving time to another address and a travel time).</span> 	
+				
+				</div>
+				
+				'.$total_price_box.'';
+				
+								
+				$info_box_flat_rate ='
+				<div class="box_info">
+				<h3 class="crew">Approximate Flat Rate</h3>
+				<div class="price-label"><h2>$'.$flat_rate.'</h2></div>	
+				<div class="calc-intro_description">Gas, milage, talls are included.</div>
+				</div>	';
+				
+	
+	$next_button = '<input class="summery-btn form-submit button" type="submit" id="go-to-info-btn" name="op" value="Make a Request >>">
+				</div></div>';
+				
+	 $output = '<div class="three_block direction_info">
+	 <div class="calc-intro"><div id="map_direction"></div>
+	 <h5>Moving From:</h5>  <span class="calc-intro_description"> '.$from.' ('.$Type_From.') </span> </br>
+	 <h5>Moving To:</h5> <span class="calc-intro_description">  '.$to.' ('.$Type_To.')</span> </br>
+	 <h5>Distance:</h5><p class="calc-intro_description"> '.$distance.' miles </p>
+	 
+	 <input class="summery-btn form-submit button" type="submit" id="back-to-calc-btn" name="op" value="<< Back to Calculator">
+	 </div>
+	 </div>';
+	 
+	 $info_output = '<div class="three_block"><div id="calc-results2">
+			 <div class="calc-intro-info">		 
+			  <h2>Estimated Quote</h2>
+			  <p class="calc-intro_description">Please note that the quote provided here is only an estimate.<br>
+			  It is based on previous history of similar to your moves.   
+			<strong>Every move is always unique and depends on many factors</strong>
+				</p>
+			<h2>Requesting Availability</h2>
+			 <p class="calc-intro_description">Once you will submit the REQUEST FORM, you will have additional options to describe your move with more details, so
+			we can either confirm or update an existing quote with more precise one.</br>
+			You will be able to check the status of your current request,
+			update the details and even request to change your moving date
+			and time with only one click.</p>
+			</div>		
+			 </div></div>';
+	 
+	 
+	 if($flat_rate != false) {
+		$output = $output.$info_box.$info_box_flat_rate.$next_button;
+		$movecalc_output = $info_box.$info_box_flat_rate;
+		variable_set('movecalc_output',$movecalc_output);
+	 }
+	 else{
+		$output = $output.$info_box.$info_box_regular.$next_button.$info_output;
+		$movecalc_output = '<div class="calc_block"><div class="form_block">'.$info_box_regular.'';
+		variable_set('movecalc_output',$movecalc_output);
+		}
+	 
+	
+		
+	 
+	$results['result_box'] = $output;
+	$results['crew'] = $crew;
+	$results['min_time'] = $total_min_price;
+	$results['max_time'] = $total_max_price;
+	$results['est_price'] = $total_min_price*$price.'$-'.$total_max_price*$price.'$';
+	$results['price'] = $price;
+	$results['truck'] = $truck_id;
+	$results['distance'] = $distance;
+	$results['duration'] = $duration;
+	$results['travel_time'] = $travel_time;
+	$results['zip_from'] = $zip_from;
+	$results['zip_to'] = $zip_to;
+	
+	 drupal_add_js(array('calculator' => $results), "setting");
+ }
+ //*Helper Functions*//
+ function movecalc_room_count($extra_rooms){
+		$room_count = 0;
+		foreach ($extra_rooms AS $i => $room) {
+			if($room != 0)
+			{
+				$room_count++;
+			}
+		}	
+
+	return $room_count;
+ }
+ function movecalc_room_text($extra_rooms,$form_state){
+    $extra_room_text = '';
+	$room_now = 0;
+	$room_count = movecalc_room_count($extra_rooms);
+	 foreach ($extra_rooms AS $i => $room) {
+		if($room != 0)
+			{
+			$rooms[$i] = $form_state['complete form']['calculator']['Extra_Furnished_Rooms']['#options'][$room];
+			$room_now++;
+				if($room_now == 1 && $room_count == $room_now) {
+					$extra_room_text = '(with '.$rooms[$i].')';
+				}
+				elseif($room_now == 1 && $room_count == 2) {
+					$extra_room_text = '(with '.$rooms[$i].' and ';
+				}
+				elseif($room_now == 2 && $room_count == 2) {
+					$extra_room_text = $extra_room_text.$rooms[$i].')';
+				}
+				elseif($room_now == 1 && $room_count > 2) {
+					$extra_room_text = '(with '.$rooms[$i].', ';
+				}
+				elseif($room_now == $room_count) {
+					$extra_room_text = $extra_room_text.$rooms[$i].')';
+				}
+				elseif($room_now +1 == $room_count) {
+					$extra_room_text = $extra_room_text.$rooms[$i].' and ';
+				}
+				else
+				 $extra_room_text = $extra_room_text.$rooms[$i].', ';
+				
+			}
+		
+		}
+	return $extra_room_text;
+ }
+ /** 
+*   Summery Resulats Ajax Callback Last Step
+*/ 
+ function movecalc_summery_results($form,&$form_state){
+	 $error_string = '<div id="summery-alert"><p>Please enter all required filds.They have been highlighted.</p></div>';
+	 $error_string2 =  "<div id='summery-alert'><p>Your email in our system. Please use login instead.</div>";
+	 $error_string3 = "<div id='summery-alert'><p>Password does not match the confirm password.</p></div>";
+
+	$results['this'] = $form_state['clicked_button']['#attributes']['class'][0];
+	$results['user_login_error'] = false; 
+	drupal_add_js(array('validate' => $results), "setting");
+
+	 $first_name = $form_state['values']['first_name'];
+		if(empty($first_name))
+		 return $error_string;
+	 $last_name = $form_state['values']['last_name'];
+		if(empty($last_name))
+		 return $error_string;
+	 $phone = $form_state['values']['primary_phone'];
+		if(empty($phone))
+		 return $error_string;
+	 $email = $form_state['values']['email'];
+		if(empty($email))
+		return $error_string;	 
+	 $password = $form_state['values']['passowrd_signup']; 
+	 $confirm_password = $form_state['values']['confirm_passowrd_signup'];
+	
+	
+	global $user;	
+	$current_user = user_load_by_mail($email);
+	 if($current_user) { //user exist in db
+		if($current_user->uid != $user->uid) //if not allready login. If login then cool
+			if(!user_authenticate($current_user->name, $password)) { // try to login
+				$results['user_login_error'] = true; 
+				drupal_add_js(array('validate' => $results), "setting");
+				return $error_string2;	 // password don't match
+			}
+	} else { // use don't exist check if password same
+		if($password != $confirm_password){
+			$results['user_login_error'] = true; 
+			drupal_add_js(array('validate' => $results), "setting");
+			return $error_string3;	 // password don't match
+		}
+	}
+	 
+	 
+	
+	
+		//address from
+	$address_from = $form_state['values']['moving_from'];
+		if(empty($address_from))
+		 return $error_string;	
+		 
+		 
+	$zip_from = $form_state['values']['moving_from_zip'];
+		if(empty($zip_from))
+		 return $error_string;	 
+	
+	$city_from = $form_state['values']['moving_from_city'];
+		if(empty($city_from))
+		 return $error_string;	 
+		 
+	$state_from = $form_state['values']['moving_from_state'];
+		if(empty($state_from))
+		 return $error_string;
+		
+		//address to	
+	$address_to = $form_state['values']['moving_to'];
+		if(empty($address_to))
+		 return $error_string;	
+		 
+		 
+	$zip_to = $form_state['values']['moving_to_zip'];
+		if(empty($zip_to))
+		 return $error_string;	 
+	
+	$city_to = $form_state['values']['moving_to_city'];
+		if(empty($city_to))
+		 return $error_string;	 
+		 
+	$state_to = $form_state['values']['moving_to_state'];
+		if(empty($state_to))
+		 return $error_string;
+	 
+	$apt_from =  $form_state['values']['moving_from_apt'];
+	$apt_to = $form_state['values']['moving_to_apt'];
+	$comments = $form_state['values']['comments_about_move'];
+	$prefered_time = $form_state['values']['prefered_time'];	 
+	 $additional_phone = $form_state['values']['additional_phone'];
+	 $move_size = $form_state['values']['Size_Move'];	
+	 $type_to = $form_state['values']['Type_To'];	
+	 $type_from = $form_state['values']['Type_From'];
+	 $extra_rooms = $form_state['values']['Extra_Furnished_Rooms'];	
+	 $date = $form_state['values']['Move_Date'];
+	 $crew = $form_state['values']['movers_crew'];
+	 $truck = $form_state['values']['truck'];
+	 $distance = $form_state['values']['distance'];
+	 $duration = $form_state['values']['duration'];
+	 $travel_time = $form_state['values']['travel_time'];
+	 
+	 $min_time = $form_state['values']['max_time'];
+	 $max_time = $form_state['values']['min_time'];
+	 
+	 $price_per_hour = $form_state['values']['price_per_hour'];
+	 $estimated_price = $form_state['values']['estimated_price'];
+	 
+	$Size_of_Move = $form_state['complete form']['calculator']['Size_Move']['#options'][$move_size];
+	$Type_From = $form_state['complete form']['calculator']['Type_From']['#options'][$type_from];
+	$Type_To = $form_state['complete form']['calculator']['Type_To']['#options'][$type_to];
+	$Pref_Time = $form_state['complete form']['personal_info']['prefered_time']['#options'][$prefered_time];
+	$viewDate = date("l, M j",strtotime($date)); 
+	
+	$extra_rooms = $form_state['values']['Extra_Furnished_Rooms'];	
+ 
+	 $room_count = 0;
+	 $extra_room_text = '';
+		foreach ($extra_rooms AS $i => $room) {
+			if($room != 0)
+			{
+			$rooms[$i] = $form_state['complete form']['calculator']['Extra_Furnished_Rooms']['#options'][$room];
+			$room_count++;
+				if($room_count !=0) {
+					$extra_room_text = '(with '.$extra_room_text.', ';
+				}
+				$extra_room_text = $extra_room_text.$rooms[$i].', ';
+			}
+		}
+	
+/*	 
+	 
+	$move_request = array (
+	'first_name' => $first_name,
+	'last_name' => $last_name,
+	'phone' => $phone,
+	'email' => $email,
+	'additional_phone' => $additional_phone,
+	'prefered_time' => $prefered_time,
+	'comments_about_move' => $comments,
+	'move_size' => $move_size,
+	'type_from' => $type_from,
+	'type_to' => $type_to,
+	'date' => $date,
+	'crew' => $crew,
+	'truck' => $truck,
+	'distance' => $distance,
+	'address_from'=>$address_from,
+	'apt_from' => $apt_from,
+	'city_from' => $city_from,
+	'state_from' =>$state_from,
+	'zip_from' => $zip_from,
+	'address_to'=>$address_to,
+	'apt_to' => $apt_to,
+	'city_to' => $city_to,
+	'state_to' =>$state_to,
+	'zip_to' => $zip_to,
+	'price_per_hour' =>$price_per_hour,
+	'estimated_price' => $estimated_price,
+	'min_time'=> $min_time,
+	'max_time' => $max_time,
+	'duration'=>$duration,
+	'travel_time' => $travel_time,
+	'user_id' => 1,
+	'rooms' =>$rooms,
+	);	 */
+	
+	 	$info_box = '<div class="calc_block"><div class="form_block">	
+				
+				<div class="box_info">
+				<h3 class="crew">'.$crew.' movers crew</h3>
+				<h5 class="truck">'.$truck.'</h5>
+				</div>
+				
+				<div class="box_info">
+				<h3>Preffired Time:</h3>
+				<div class="price-label"> <span>'.$Pref_Time.'</span></div>	
+				</div>
+				
+				</div></div>';
+		
+	
+	 $output = '<div class="two_block">
+	 <div class="calc-intro"><h5 class="calc-review_heading">Summary Review</h5>
+	 <div class="box_info">
+					  <h3>'.$first_name.' '.$last_name.'</h3>
+					 <div class="calc-review_description"> 
+					 <p>Phone: '.$phone.'
+					 '.$additional_phone.'
+					 </p>
+					 <span>E-mail: '.$email.'</span>
+					 </div>
+	</div>
+	 <div class="box_info">
+				<h3>Move day: '.$viewDate.'</h3>
+				<div class="calc-review_description"> Moving of '.$Size_of_Move.' '.$extra_room_text.'  </div>
+	</div>
+	 <div class="box_info">
+				<h3>Moving From:</h3>
+				<div class="calc-review_description"> '.$address_from.' '.$apt_from.', '.$city_from.', '.$state_from.' '.$zip_from.' ('.$Type_From.') </div>
+	</div>
+	<div class="box_info">
+				<h3>Moving To:</h3>
+				<div class="calc-review_description"> '.$address_to.' '.$apt_to.', '.$city_to.', '.$state_to.' '.$zip_to.' ('.$Type_To.')  </div>
+	</div>
+	 <div class="box_info">
+				<h3>Prefered Moving Time:</h3>
+					 <div class="calc-review_description">'.$Pref_Time.'</div>	
+	</div>
+	 
+	 <input class="summery-btn form-submit button" type="submit" id="back-to-info-btn" name="op" value="<< Back to Details">
+	 </div>
+	 </div>';
+	 
+
+	 
+	 $output2 = $output.variable_get('movecalc_output');
+	 $results['summery_info'] = $output2;
+	 $results['step']  = 'Continue to Summery';
+	 
+	 
+	 drupal_add_js(array('calculator' => $results), "setting");	 
+
+ }
+ 
+
+/**
+ *  Define Theme Function for Form
+ */
+ function movecalc_theme()
+{
+	return array
+	(
+		'movecalc_moving_form' => array
+		(
+			'render element' => 'form'
+		),
+	);
+}
+
+ /** 
+*   Theme Function
+*/ 
+ 
+ function theme_movecalc_moving_form($variables)
+{
+	// Isolate the form definition form the $variables array
+	$form = $variables['form'];
+	$output = '<ul id="progressbar">
+		<li class="active">
+						<div class="circle"></div>
+						<div class="icon discovery"></div>
+						<div class="dot"></div>
+						<h2>Calculator</h2>					
+		</li>
+		<li>
+		<div class="circle"></div>
+						<div class="icon discovery"></div>
+						<div class="dot"></div>
+						<h2>Calculator Results</h2>			
+		</li>
+		<li>
+		<div class="circle"></div>
+						<div class="icon discovery"></div>
+						<div class="dot"></div>
+						<h2>Personal Info</h2>			
+		</li>
+		<li>
+		<div class="circle"></div>
+						<div class="icon discovery"></div>
+						<div class="dot"></div>
+						<h2>Review & Sumbit</h2>		
+		</li>
+		<li>
+		<div class="icon discovery"></div>
+						<div class="dot"></div>
+						<h2>Confirmation</h2>	
+		
+		</li>
+		</ul>';
+	$output .= drupal_render_children($form);
+	// return the output
+	return $output;
+}
+ /**
+ *Page embedding a form on a page
+ */
+  function movecalc_simple_page() {
+	$build = array (
+	'header_text' => array(
+	'#type' => 'markup',
+	'#markup' => '<p>' . t('To add additinal content to a form page.').'</p>',
+	),
+	'example_form' => drupal_get_form('movecalc_moving_form'),
+	);
+	return $build;
+	}
+	
+
+ /**
+  * Submint function
+ */
+ function movecalc_confirm_step($form,&$form_state){
+     
+	$first_name = $form_state['values']['first_name'];
+	$last_name = $form_state['values']['last_name'];
+	$phone = $form_state['values']['primary_phone'];
+	$email = $form_state['values']['email'];
+	$address_from = $form_state['values']['moving_from'];
+	$user_password = $form_state['values']['passowrd'];
+	
+	$apt_from = $form_state['values']['moving_from_apt']; 
+	$zip_from = $form_state['values']['moving_from_zip'];
+	$city_from = $form_state['values']['moving_from_city']; 
+	$state_from = $form_state['values']['moving_from_state'];
+		//address to	
+	$address_to = $form_state['values']['moving_to'];
+	$apt_to = $form_state['values']['moving_to_apt']; 
+	$zip_to = $form_state['values']['moving_to_zip'];
+	$city_to = $form_state['values']['moving_to_city'];
+	$state_to = $form_state['values']['moving_to_state'];
+	
+	$comments = $form_state['values']['comments_about_move'];
+	$prefered_time = $form_state['values']['prefered_time'];	 
+	$additional_phone = $form_state['values']['additional_phone'];
+	$move_size = $form_state['values']['Size_Move'];	
+	$type_to = $form_state['values']['Type_To'];	
+	$type_from = $form_state['values']['Type_From'];
+	$extra_rooms = $form_state['values']['Extra_Furnished_Rooms'];	
+	$date = $form_state['values']['Move_Date'];
+	$crew = $form_state['values']['movers_crew'];
+	$truck = $form_state['values']['truck'];
+	$distance = $form_state['values']['distance'];
+	$duration = $form_state['values']['duration'];
+	$travel_time = $form_state['values']['travel_time'];
+
+	 
+	$Size_of_Move = $form_state['complete form']['calculator']['Size_Move']['#options'][$move_size];
+	$Type_From = $form_state['complete form']['calculator']['Type_From']['#options'][$type_from];
+	$Type_To = $form_state['complete form']['calculator']['Type_To']['#options'][$type_to];
+	$Pref_Time = $form_state['complete form']['personal_info']['prefered_time']['#options'][$prefered_time];
+	$viewDate = date("l, M j",strtotime($date)); 
+	 
+	 $min_time = $form_state['values']['min_time'];
+	 $max_time = $form_state['values']['max_time'];
+	 
+	 $price_per_hour = $form_state['values']['price_per_hour'];
+	 $estimated_price = $form_state['values']['estimated_price'];	
+	
+	$results['step'] = 'Confirm';
+	$results['this'] = $form_state['clicked_button']['#attributes']['class'][0];
+	
+	$extra_rooms = $form_state['values']['Extra_Furnished_Rooms'];	
+ 
+	 $rooms='';
+	 $room_count = 0;
+		foreach ($extra_rooms AS $i => $room) {
+		 
+			if($room != 0)
+			{
+				if($room_count == 0)
+					$rooms = $rooms.$form_state['complete form']['calculator']['Extra_Furnished_Rooms']['#options'][$room];
+				else 
+					$rooms = $rooms.', '.$form_state['complete form']['calculator']['Extra_Furnished_Rooms']['#options'][$room];
+					
+				$room_count++;
+			}
+		}
+			
+	$poll_info = $form_state['values']['poll_info'];	
+	
+	
+	drupal_add_js(array('calculator' => $results), "setting");
+	
+	
+	 
+	
+	$user_info  = array (
+	'first_name' => $first_name,
+	'last_name' => $last_name,
+	'email' => $email,
+	'password' => $user_password,
+	'phone' => $phone,
+	'additional_phone' => $additional_phone,
+	);
+	
+	$move_request = array (
+	'first_name' => $first_name,
+	'last_name' => $last_name,
+	'phone' => $phone,
+	'email' => $email,
+	'additional_phone' => $additional_phone,
+	'prefered_time' => $prefered_time,
+	'comments_about_move' => $comments,
+	'move_size' => $move_size,
+	'type_from' => $type_from,
+	'type_to' => $type_to,
+	'date' => $date,
+	'crew' => $crew,
+	'truck' => $truck,
+	'distance' => $distance,
+	'address_from'=>$address_from,
+	'apt_from' => $apt_from,
+	'city_from' => $city_from,
+	'state_from' =>$state_from,
+	'zip_from' => $zip_from,
+	'address_to'=>$address_to,
+	'apt_to' => $apt_to,
+	'city_to' => $city_to,
+	'state_to' =>$state_to,
+	'zip_to' => $zip_to,
+	'price_per_hour' =>$price_per_hour,
+	'estimated_price' => $estimated_price,
+	'min_time'=> $min_time,
+	'max_time' => $max_time,
+	'duration'=>$duration,
+	'travel_time' => $travel_time,
+	'user_id' => 1,
+	'rooms' =>$rooms,
+	'polls' =>$poll_info,
+	);
+	
+	
+	// load user, if exist creat and his name , if not - create new user and create move request.
+	$current_user = user_load_by_mail($email);
+		if(!$current_user){
+			movecalc_create_user($user_info);
+			$tuser = user_load_by_mail($email);
+			global $user;
+			$user = $tuser;
+			drupal_session_regenerate();			
+			$move_request['user_id']= $tuser->uid;	
+		} 
+		else {
+			$move_request['user_id']= $current_user->uid;
+			global $user;
+			$user = $current_user;
+			drupal_session_regenerate();
+		}
+	global $base_path;
+	$request_id = movecalc_create_request($move_request);
+	$request_url = 'http://'.$_SERVER["HTTP_HOST"].$base_path.'request/'.$request_id.'';	
+	$output = '<div id="confirmation_block"><h1 class="calc-intro_heading">Your Moving Request has been Submitted.</h1>
+<div class="calc-confirm"> Weve sent you an email with all details regarding your request.
+In the meantime you can check your request details <a href="'.$request_url .'">right here</a> <br>
+The current status of your reservation is <span class="status">Pending</span>. <br>
+We will contact you shortly to confirm your Moving Request, discuss all details and finalize, date and time of the move! If you have any question, please do not hesitate to contact our office.
+NOTE: Some email servers like HOTMAIL and GMAIL can forward Confirmation email to BULK folder.</div>
+</div>';	
+		
+	//$prev_button = '<input class="summery-btn form-submit button" type="submit" id="#back-to-info-details" name="op" value="<< Back to Details">';
+	
+	return $output;
+	
+ }
+   
+  
+  /*** 
+ *    Get Price Function
+***/
+	function movecalc_get_price($date,$movers) {
+		$view = views_get_view('price_table');
+			$peak = movecalc_get_calendar_type($date);
+			$args = array($movers,$peak->price_type);
+			$view->set_display('page');
+			$view->set_arguments($args);
+			$view->pre_execute($args);			
+			$view->execute();
+			foreach ($view->result AS $i => $result) {	
+			 $price = $result->field_field_price[0]['raw']['value'];				
+			}
+		$view->destroy();
+	
+		return $price;
+	
+	}
+
+/*
+	Calendar Type Table
+*/
+function movecalc_get_calendar_type($date){
+	// Select price_type From price_calendar Where date=$date
+	$query = db_select('price_calendar','p')
+		->fields('p',array('price_type'))
+		->condition('date',$date);
+	$record = $query->execute()->fetch();
+	return $record;
+
+}
+//* Create User Programatically *//
+function movecalc_create_user($user_info){
+
+	$form_state['values']['name'] = $user_info['email'];
+	$form_state['values']['mail'] = $user_info['email'];	
+	$form_state['values']['pass']['pass1'] = $user_info['password'];
+	$form_state['values']['pass']['pass2'] = $user_info['password'];
+	$form_state['values']['op'] = t('Create new account');
+
+	drupal_form_submit('user_register_form', $form_state);
+	
+	
+	$current_user = user_load_by_mail($user_info['email']);
+	
+	$wrapper = entity_metadata_wrapper('user', $current_user);
+	$wrapper->field_user_first_name->set($user_info['first_name']);
+	$wrapper->field_user_last_name->set($user_info['last_name']);
+	$wrapper->field_primary_phone->set($user_info['phone']);
+	$wrapper->field_user_additional_phone->set($user_info['additional_phone']);
+	$wrapper->save();
+		
+}
+//* Travel Time *//
+function movecalc_travel_time($zip_code_from,$zip_code_to){
+
+	//Step 1. get Zone from tabel
+	$zone_from = movecalc_get_zip_zone($zip_code_from);
+	$zone_to = movecalc_get_zip_zone($zip_code_to);
+	// Get Time from zone to zone formula
+	$time_zone = array (
+	'1' => 0.25,
+	'2' => 0.5,
+	'3' => 0.75,
+	'4' => 1,
+	);
+
+
+	if($zip_code_from == '02026') {
+		$zone_from = 1;
+	}
+	if($zip_code_to == '02026') {
+		$zone_to = 1;
+	}
+	if($zone_from == 0) { //if it's far away - count time like google said
+		$url ='http://maps.googleapis.com/maps/api/directions/json?origin=02026&destination='.$zip_code_from.'&sensor=false';
+		$ch = curl_init();
+		curl_setopt($ch, CURLOPT_URL,$url);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		$result = curl_exec($ch);
+		$decoded_json = json_decode($result,true);
+		
+		$distance_zone_to = $decoded_json['routes'][0]['legs'][0]['distance']['text'];   //Distance from Zip To Zip
+		$time_zone_duration_to = round($decoded_json['routes'][0]['legs'][0]['duration']['value'] / 3600,1); // Apr. Driving Time. 
+		
+	
+	}else {
+		
+		$time_zone_duration_to = $time_zone[$zone_from];
+		
+	}
+	if($zone_to == 0) { //if it's far away - count time like google said
+		$url ='http://maps.googleapis.com/maps/api/directions/json?origin='.$zip_code_to.'&destination=02026&sensor=false';
+		$ch = curl_init();
+		curl_setopt($ch, CURLOPT_URL,$url);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		$result = curl_exec($ch);
+		$decoded_json = json_decode($result,true);	
+		$distance_zone_from = $decoded_json['routes'][0]['legs'][0]['distance']['text'];   //Distance from Zip To Zip
+		$time_zone_duration_from = round($decoded_json['routes'][0]['legs'][0]['duration']['value'] / 3600,1); // Apr. Driving Time. 
+		
+		
+		
+	}else {
+		$time_zone_duration_from = $time_zone[$zone_to];
+	}
+	
+  
+	$travel_time = $time_zone_duration_from + $time_zone_duration_to;
+
+	$travel_time = get_pricable_time($travel_time);
+
+	return $travel_time;
+}
+//*get zone from zip code views table
+function movecalc_get_zip_zone($zip_code) {
+	$zone = 0;
+	$view = views_get_view('zip_code_zone');
+			$args = array($zip_code);		
+			$view->set_display('page_1');	
+			$view->pre_execute($args);			
+			$view->execute();
+			foreach ($view->result AS $i => $result) {
+			$zone = $result->field_field_zone[0]['raw']['value'];
+			}
+	$view->destroy();	
+	
+	return $zone;
+
+}
+//*get flat rate
+function movecalc_get_flat_rate($zip_code_from,$zip_code_to,$size_move) {
+	
+	$url ='http://maps.googleapis.com/maps/api/directions/json?origin='.$zip_code_from.'&destination='.$zip_code_to.'&sensor=false';
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL,$url);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	$result = curl_exec($ch);
+	$decoded_json = json_decode($result,true);
+	$radius = 50;
+	$distance = round($decoded_json['routes'][0]['legs'][0]['distance']['value'] / 1609.34);   //Distance from Zip To Zip in miles
+	$flat_from = $decoded_json['routes'][0]['legs'][0]['start_address'];
+	$flat_to = $decoded_json['routes'][0]['legs'][0]['end_address'];	 
+	
+	$view = views_get_view('flat_rate_price_table');
+
+	if($distance <= 150){
+		return false;
+	}
+	if($distance > 150 && $distance < 220) {
+		$args = array(220,$size_move);	
+	}
+	if($distance > 220 && $distance <= 310) {
+		$args = array(310,$size_move);
+	}
+	if($distance > 310 && $distance < 540) {
+		$args = array(440,$size_move);
+	}
+	if($distance > 540) {
+		return false;
+	}
+		$view->set_display('page');	
+		$view->pre_execute($args);			
+		$view->execute();
+			foreach ($view->result AS $i => $result) {
+			$ratio = $result->field_field_ratio[0]['raw']['value'];
+			$dis = $result->field_field_flat_distance[0]['raw']['value'];
+			$flat_price= $result->field_field_flat_rate_price[0]['raw']['value'];
+			}
+	$view->destroy();	
+	
+	if( abs($dis-$distance) > $radius) {
+		$flat_price = round($flat_price - $ratio*($dis-$distance),-3);
+	}
+	
+
+	return $flat_price;
+
+}
+
+//* Create Node Moving Request *//
+function movecalc_create_request($move_request){
+	global $user;
+		// Create an Entity with wrapper
+ 	if($move_request['polls']){	
+
+		$poll = entity_create('node', array('type' => 'how_did_you_hear_about_us_'));	
+		$entity = entity_metadata_wrapper('node', $poll);
+		$node->language = LANGUAGE_NONE;
+		$node->uid = $move_request['user_id'];
+		// Add a node title
+		$entity->title = "How did you hear about us";
+		$entity->field_source_list->set($move_request['polls']);
+		$entity->save();
+	}
+	
+	$node = entity_create('node', array('type' => 'move_request'));
+	
+	$entity = entity_metadata_wrapper('node',  $node);
+	$node->language = LANGUAGE_NONE;
+	$node->uid = $move_request['user_id'];
+	// Add a node title
+	$entity->title = "Move Request";
+	 
+
+	  // Moving From address information
+	  $entity->field_moving_from->thoroughfare = $move_request['address_from'];
+	  $entity->field_moving_from->locality = $move_request['city_from'];
+	  $entity->field_moving_from->administrative_area = $move_request['state_from'];
+	  $entity->field_moving_from->postal_code = $move_request['zip_from'];
+	  $entity->field_moving_from->country = "US";
+	  
+	  // Moving To address information
+	  $entity->field_moving_to->thoroughfare = $move_request['address_to'];
+	  $entity->field_moving_to->locality = $move_request['city_to'];
+	  $entity->field_moving_to->administrative_area = $move_request['state_to'];
+	  $entity->field_moving_to->postal_code = $move_request['zip_to'];
+	  $entity->field_moving_to->country = "US";
+	  
+	  //Info
+	$entity->field_first_name->set($move_request['first_name']);
+	$entity->field_last_name->set($move_request['last_name']);
+	$entity->field_e_mail->set($move_request['email']); // mail
+	$entity->field_phone->set($move_request['phone']);  // phone
+	$entity->field_additional_phone->set($move_request['additional_phone']);  // aditionalphone
+	  //date
+	$node->field_date['und'][0]['value'] = $move_request['date'];  // Date of Move
+	$entity->field_start_time->set($move_request['prefered_time']); // Start Time
+	  // Move Info
+	$entity->field_price_per_hour->set($move_request['price_per_hour']); //Price per Hour
+	$entity->field_estimated_prise->set($move_request['estimated_price']); // Estimated Price
+	
+	$entity->field_minimum_move_time->set($move_request['min_time']);  
+	$entity->field_maximum_move_time->set($move_request['max_time']);  // Additional comments
+	$entity->field_distance->set($move_request['distance']); // Move Distance
+	$entity->field_travel_time->set($move_request['travel_time']);  // Travel Time
+	$entity->field_duration->set($move_request['duration']);  // Duration
+	
+	
+	$entity->field_size_of_move->set($move_request['move_size']); // Size of Move
+	$entity->field_type_of_entrance_from->set($move_request['type_from']);  // Type of Entrance From
+	$entity->field_type_of_entrance_to_->set($move_request['type_to']);  // Type of Entrance To
+	$truck_array = explode( ',',$move_request['truck']);
+	$entity->field_truck->set($truck_array);  //  Type of Truck
+	$entity->field_movers_count->set($move_request['crew']);  // Size of Crew
+	$entity->field_additional_comments->set($move_request['comments_about_move']);  // Additional comments
+	$entity->field_extra_rooms->set($move_request['rooms']); 
+	
+	  // Save the entity
+	 $entity->save();
+	 $node = $entity->value();
+	 return $node->nid;;
+	//*End
+}
+function movecalc_user_has_role($role, $user = NULL) {
+  if ($user == NULL) {
+    global $user;
+  }
+
+  if (is_array($user->roles) && in_array($role, array_values($user->roles))) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+// Journal Page 
+function movecalc_preprocess_page($vars){
+   
+   
+    if(arg(0) == 'work-journal') {
+	
+		if(movecalc_user_has_role('superhero') || movecalc_user_has_role('administrator')) {
+		$date = arg(1);	
+		$date2 = date('Y-m-d', strtotime(' +1 day',strtotime($date)));
+		$date3 = date('Y-m-d', strtotime(' +1 day',strtotime($date2)));
+		$date4 = date('Y-m-d', strtotime(' +1 day',strtotime($date3)));
+		$date5 = date('Y-m-d', strtotime(' +1 day',strtotime($date4)));
+		$date6 = date('Y-m-d', strtotime(' +1 day',strtotime($date5)));
+		$date7 = date('Y-m-d', strtotime(' +1 day',strtotime($date6)));
+		$path = drupal_get_path('module', 'movecalc');
+		global $base_path;
+		drupal_add_js($path.'/js/jquery-ui.js');
+		$next_date_link = '<a href="http://'.$_SERVER["HTTP_HOST"] .$base_path.arg(0).'/'.date('Y-m-d', strtotime($date .' +1 day')).'"> > </a>' ;
+		$prev_date_link = '<a href="http://'.$_SERVER["HTTP_HOST"] .$base_path.arg(0).'/'.date('Y-m-d', strtotime($date .' -1 day')).'"> < </a>' ;
+		$dashboard_link = '<a class="dashboard" href="http://'.$_SERVER["HTTP_HOST"].$base_path.'admin/dashboard">Dashboard</a>';
+		$pageArray = array();
+		$args = array($date,$date2,$date3,$date4,$date5,$date6,$date7);
+		$pageArray['path'] = 'http://' . $_SERVER["HTTP_HOST"] .$base_path.$path;
+		$pageArray['next_link'] = $next_date_link;
+		$pageArray['prev_link'] = $prev_date_link;
+		$datec = date_create($date);
+		$pageArray['date'] = '<div class="field_date">'.date_format($datec,'l ,M j').'</div>';
+		$pageArray['date_raw']= date_format($datec,'m/d/Y');
+		$pageArray['dashboard'] = $dashboard_link ;
+		$view = views_get_view('work_journal');
+		$view->set_display('page');	
+		$view->pre_execute($args);			
+		$view->execute();
+			foreach ($view->result AS $i => $result) {
+			
+			$pageArray[$i]['start_time'] = $result->field_field_start_time[0]['raw']['value'];
+			$pageArray[$i]['truck'] =  $result->field_field_truck[0]['raw']['value'];
+			$pageArray[$i]['size_of_move'] =  $result->field_field_size_of_move[0]['rendered']['#markup'];
+				
+			$first_name = $result->field_field_first_name[0]['rendered'];
+			$last_name = $result->field_field_last_name[0]['rendered'];
+			$email = $result->field_field_e_mail[0]['raw']['email'];
+			$est_price = $result->field_field_estimated_prise[0]['rendered'];
+			$price_hour = $result->field_field_price_per_hour[0]['raw']['value'];
+			
+			$date = $result->field_field_date[0]['raw']['value'];
+			$datec = date_create($date);
+			$readdate = date_format($datec,'Y-m-d');
+			
+			$size_of_move = $pageArray[$i]['size_of_move'] ;
+			$est_min_time = $result->field_field_minimum_move_time[0]['raw']['value'];	
+			$est_max_time = $result->field_field_maximum_move_time[0]['raw']['value'];	
+			$movers = $result->field_field_movers_count[0]['raw']['value'];
+			$phone = $result->field_field_phone[0]['rendered'];
+			$truck_name = $result->field_field_truck[0]['rendered']['#markup'];
+			$start_time = $result->field_field_start_time[0]['rendered']['#markup'];
+			$start_time_raw = $result->field_field_start_time[0]['raw']['value'];
+			$travel_time = $result->field_field_travel_time[0]['raw']['value'];
+			$box_height = $est_max_time*40;
+			$moving_from = $result->field_field_moving_from[0]['rendered'];
+			$moving_to =$result->field_field_moving_to[0]['rendered'];
+			
+			$approve_status = $result->field_field_approve[0]['raw']['value'];
+			$approve_name = $result->field_field_approve[0]['rendered']['#markup'];
+			
+			$full_reuqest_link = '<a target="_blank" href="http://' . $_SERVER["HTTP_HOST"] .$base_path.'request/'.$result->nid.'">Veiw Full Request</a>';
+			$edit_request_link = '<a  class="request" target="_blank" href="http://' . $_SERVER["HTTP_HOST"] .$base_path.'node/'.$result->nid.'/edit">Edit Request</a>';
+			
+			
+			$actual_start_time = $result->field_field_start_time_actual[0]['rendered']['#markup'];
+			$move_crew='';
+				foreach ($result->field_field_crew AS $y => $mover) {
+					$name = $mover['raw']['entity']->name;
+					$move_crew = $move_crew.$name.' ';
+				}
+				
+			$work = '
+			<div id="'.$result->nid.'" class="work draggable approve_'.$approve_status.'" style="height:'.$box_height.'px" >
+			<div class="scrollbar"><div class="track"><div class="thumb"><div class="end"></div></div></div></div>
+			<div class="viewport" style="height:'.$box_height.'px">
+			<div class="overview" >
+			
+			<div class="menu">
+			<div class="status_'.$approve_status.'">'.$approve_name.'</div>
+			<span>'.$movers.' / $'.$price_hour.' / '.$travel_time.'</span>
+			<div class="edit_link">'.$edit_request_link.'</div>
+			<div class="date_picker"><input type="text" class="datepicker" /></div>
+			</div>
+			
+			<li class="start_time" value="'.$start_time_raw.'">'.$start_time.'('.$actual_start_time.')</li>
+			<li class="name">'.$first_name.' '.$last_name.'
+			<div class="phone">'.$phone.'</div>		
+			</li>
+			
+			<li>Size : <b>'.$size_of_move .'</b></li>
+			<li>From :'.$moving_from.'</li>
+			<li>To :'.$moving_to.'</li>
+			<li>'.$est_min_time.' - '.$est_max_time.'</li>
+			
+			<li>Total Est.:'.$est_price.'</li>
+			
+			<li><b>'.$movers.' movers</b> '.$move_crew.'</li>
+			
+			<div class="full_request">'.$full_reuqest_link.'</div>
+					</div>
+				</div>
+		</div>';
+			
+			
+			$pageArray[$i]['work_id'] = $result->nid; 
+			$pageArray[$i]['date'] = $readdate;
+			$pageArray[$i]['work'] = $work; 
+			$pageArray[$i]['actual_start'] = $actual_start_time; 		
+			$pageArray[$i]['movers'] =$movers;
+			$pageArray[$i]['truck_name'] = $truck_name;
+			$pageArray[$i]['max_move_time'] = $est_max_time;
+			$pageArray[$i]['min_move_time'] = $est_min_time;
+			}
+		$view->destroy();	
+		//drupal_add_js($path.'/js/jquery-1.9.1.js');
+		
+		drupal_add_js(array('movejournal' => array('pageArray' => $pageArray)),'setting');
+		drupal_add_css($path.'/css/journal.css');
+		drupal_add_css($path.'/css/jquery.confirm.css');
+		
+		drupal_add_css($path.'/css/jquery-ui.css');
+	
+		drupal_add_js($path.'/js/scroll.js');
+		drupal_add_js($path.'/js/journal.js');
+		drupal_add_js($path.'/js/jquery.confirm.js');
+		
+		}
+	
+	}
+	
+	
+	if(arg(0) == 'admin-journal') {
+	
+		if(movecalc_user_has_role('superhero') || movecalc_user_has_role('administrator')) {
+		$path = drupal_get_path('module', 'movecalc');
+		global $base_path;
+		$current_date = date('d/m/Y');
+		$current_month = date("n");
+		drupal_add_js($path.'/js/jquery-ui.js');
+		//$next_date_link = '<a href="http://'.$_SERVER["HTTP_HOST"] .$base_path.arg(0).'/'.date('Y-m-d', strtotime($date .' +1 day')).'"> > </a>' ;
+		//$prev_date_link = '<a href="http://'.$_SERVER["HTTP_HOST"] .$base_path.arg(0).'/'.date('Y-m-d', strtotime($date .' -1 day')).'"> < </a>' ;
+		$dashboard_link = '<a class="dashboard" href="http://'.$_SERVER["HTTP_HOST"].$base_path.'admin/dashboard">Dashboard</a>';
+		$pageArray = array();
+		$pageArray['path'] = 'http://' . $_SERVER["HTTP_HOST"] .$base_path.$path;
+	//	$pageArray['next_link'] = $next_date_link;
+	//	$pageArray['prev_link'] = $prev_date_link;
+		$pageArray['dashboard'] = $dashboard_link ;
+		$pageArray['current'] = $current_date;
+		$pageArray['current_month'] = $current_month;
+		$pageArray['month_work_count'] =array(0,0,0,0,0,0,0,0,0,0,0,0);
+		$view = views_get_view('work_journal');
+		$view->set_display('page_1');	
+		$view->pre_execute();			
+		$view->execute();
+			foreach ($view->result AS $i => $result) {
+	
+			$pageArray[$i]['start_time'] = $result->field_field_start_time[0]['raw']['value'];
+			$pageArray[$i]['truck'] =  $result->field_field_truck[0]['raw']['value'];
+			$pageArray[$i]['size_of_move'] =  $result->field_field_size_of_move[0]['rendered']['#markup'];
+			
+			$date = $result->field_field_date[0]['raw']['value'];
+			$datec = date_create($date);
+			$readdate = date_format($datec,'l ,M j');
+			$month = date("n",strtotime($date));
+			
+			$pageArray['month_work_count'][$month-1] = $pageArray['month_work_count'][$month-1]  + 1;
+				
+			
+			$post_date = format_date($result->node_created, 'custom', 'M j, Y');
+			
+			$type_from = $result->field_field_type_of_entrance_from[0]['rendered'];
+			$type_to = $result->field_field_type_of_entrance_to_[0]['rendered'];
+			
+			$first_name = $result->field_field_first_name[0]['rendered'];
+			$last_name = $result->field_field_last_name[0]['rendered'];
+			$email = $result->field_field_e_mail[0]['raw']['email'];
+			$est_price = $result->field_field_estimated_prise[0]['rendered'];
+			$price_hour = $result->field_field_price_per_hour[0]['raw']['value'];
+			
+			$size_of_move = $pageArray[$i]['size_of_move'] ;
+			$est_min_time = $result->field_field_minimum_move_time[0]['raw']['value'];	
+			$est_max_time = $result->field_field_maximum_move_time[0]['raw']['value'];	
+			$movers = $result->field_field_movers_count[0]['raw']['value'];
+			$phone = $result->field_field_phone[0]['rendered'];
+			$truck_name = $result->field_field_truck[0]['rendered']['#markup'];
+			$start_time = $result->field_field_start_time[0]['rendered']['#markup'];
+			$start_time_raw = $result->field_field_start_time[0]['raw']['value'];
+			$travel_time = $result->field_field_travel_time[0]['raw']['value'];
+			$moving_from = $result->field_field_moving_from[0]['rendered'];
+			$moving_to =$result->field_field_moving_to[0]['rendered'];
+			
+			$approve_status = $result->field_field_approve[0]['raw']['value'];
+			$approve_name = $result->field_field_approve[0]['rendered']['#markup'];
+			
+			$full_reuqest_link = '<a target="_blank" href="http://' . $_SERVER["HTTP_HOST"] .$base_path.'request/'.$result->nid.'">Veiw Full Request</a>';
+			$edit_request_link = '<a  class="request" target="_blank" href="http://' . $_SERVER["HTTP_HOST"] .$base_path.'node/'.$result->nid.'/edit">Edit Request</a>';
+			
+			
+			
+			$actual_start_time = $result->field_field_start_time_actual[0]['rendered']['#markup'];
+			$move_crew='';
+				foreach ($result->field_field_crew AS $y => $mover) {
+					$name = $mover['raw']['entity']->name;
+					$move_crew = $move_crew.$name.' ';
+				}
+				
+			$work = '
+			<div id="'.$result->nid.'" class="mix work adj approve_'.$approve_status.' month_'.$month.' " data-date="'.$date.'">
+			<div class="viewport">
+		
+			<div class="menu">
+			<div class="status_'.$approve_status.'">'.$approve_name.'</div>
+			<span>'.$movers.' / $'.$price_hour.' / '.$est_max_time.'</span>
+			<div class="edit_link">'.$edit_request_link.'</div>
+			
+			</div>
+			
+			<li class="start_time" value="'.$start_time_raw.'">'.$readdate.'</br><span id="prtime_'.$start_time_raw.'"> ('.$start_time.')</span>
+			<div class="date_picker"><input type="text" class="datepicker" /></div>
+			</li>
+			<li class="name">'.$first_name.' '.$last_name.'
+			<div class="phone">'.$phone.'</div>		
+			</li>
+			
+			<li>Size : <b>'.$size_of_move .'</b></li>
+			<li class="move_from">From :'.$moving_from.' '.$type_from.'</li>
+			<li>To :'.$moving_to.' '.$type_to.'</li>
+			
+			<div class="footer">
+			<li>Est. Time: '.$est_min_time.' - '.$est_max_time.'</li>
+			
+			<li>Est Price.:'.$est_price.'</li>
+			
+			<li><b>'.$movers.' movers</b> '.$move_crew.'</li>
+			
+			<div class="full_request">'.$full_reuqest_link.'</div>
+			</div>
+					</div>
+		</div>';
+			
+			
+			$pageArray[$i]['work_id'] = $result->nid; 
+			$pageArray[$i]['work'] = $work; 
+			$pageArray[$i]['actual_start'] = $actual_start_time; 		
+			$pageArray[$i]['movers'] =$movers;
+			$pageArray[$i]['truck_name'] =$truck_name;
+			$pageArray[$i]['max_move_time'] = $est_max_time;
+			$pageArray[$i]['min_move_time'] = $est_min_time;
+			}
+		$view->destroy();	
+		//drupal_add_js($path.'/js/jquery-1.9.1.js');
+		
+		drupal_add_js(array('movejournal' => array('pageArray' => $pageArray)),'setting');
+		drupal_add_css($path.'/css/journal.css');
+		drupal_add_css($path.'/css/jquery.confirm.css');
+		drupal_add_css($path.'/css/jquery-ui.css');
+
+		drupal_add_js($path.'/js/admin-journal.js');
+		drupal_add_js($path.'/js/jquery.confirm.js');
+		drupal_add_js($path.'/js/jquery.mixitup.js');
+		}
+	
+	}
+	
+}
+
+function get_readable_time($number){
+
+
+	$minutes = 0;
+	$hour = floor($number); 
+	$fraction = $number - $hour;
+
+	// 0, 15min - 0.25 , 30min - 0.5 , 45 min - 0.75 
+	if($fraction > 0.15 AND $fraction < 0.36)
+		{ 
+		$minutes = 15;
+		}
+	if($fraction >= 0.36 AND $fraction < 0.64)
+	{
+		$minutes = 30;
+	}
+	if($fraction >= 0.64 AND $fraction < 0.87)
+	{
+		$minutes = 45;
+	}
+	if($fraction >= 0.87)
+	{
+		$minutes = 0;
+		$hour++;
+	}
+
+	if($minutes == 0 && $hour != 1)
+		return $hour.' <span>hrs</span>';
+	elseif($hour == 1)
+		return $hour.' <span>hr</span>';
+	elseif($hour == 0)
+		return $minutes.'<span> min </span>';	
+	else
+		return $hour.'<span> hrs </span>'.$minutes.'<span> min </span>';
+
+}
+function get_pricable_time($number){
+
+	$minutes = 0;
+	$hour = floor($number); 
+	$fraction = $number - $hour;
+	// 0, 15min - 0.25 , 30min - 0.5 , 45 min - 0.75 
+	if($fraction > 0.15 && $fraction < 0.36)
+	{ 
+		$minutes = 0.15;
+	}
+	if($fraction >=0.36 && $fraction <0.64)
+	{
+		$minutes = 0.5;
+	}
+	if($fraction >= 0.64 && $fraction < 0.87)
+	{
+		$minutes = 0.75;
+	}
+	if($fraction >= 0.87)
+	{
+		$minutes = 0;
+		$hour++;
+	}
+
+	if($minutes == 0)
+		return $hour;
+	else
+		return $hour+$minutes;
+
+}
+function _movecalc_get_peak_type($date){
+	$type = movecalc_get_calendar_type($date);
+	return _movecalc_get_type_name($type->price_type);
+ }
+  function _movecalc_get_type_name($id){
+	switch ($id) {
+    case 1:
+        return "discount";
+        break;
+    case 2:
+        return "regular";
+        break;
+    case 3:
+        return "peak";
+        break;
+	case 4:
+        return "preseason";
+        break;
+	case 5:
+        return "seasonal";
+        break;
+	case 6:
+        return "block_date";
+        break;
+	}
+  
+  
+  }
+  /**
+ * Ajax callback to check if user_exist 
+ */
+function  movecalc_check_user($mail,$pass){	
+	
+	if(valid_email_address($mail)){
+		$user = user_load_by_mail($mail);
+		if(!$user){
+				// USER DON'T Exist
+		} 
+			else {
+				//If user exitst check password 
+				if(user_authenticate($user->name, $password)){
+					//OK! USER LOGIN
+					
+				}else
+				{
+					//Password don't match - return forgot password link
+				
+					return 2;
+				
+				}	
+			}
+		
+	}
+	 return 1;
+	 
+	
+} 
+function  movecalc_check_user_ajax($type ='ajax'){	
+	
+	$mail = arg(2);	
+	$password = arg(3);
+	if(valid_email_address($mail)){
+		$user_login = user_load_by_mail($mail);
+		if(!$user_login){
+				// USER DON'T Exist
+				return '4';
+		} 
+			else {
+				//If user exitst check password 
+				if(user_authenticate($user_login->name, $password)){
+					//global $user;
+					$user_first_name = $user_login->field_user_first_name['und'][0]['value'];
+					$user_last_name = $user_login->field_user_last_name['und'][0]['value'];
+					$user_primary_phone = $user_login->field_primary_phone['und'][0]['value'];
+					$user_additional_phone = $user_login->field_user_additional_phone['und'][0]['value'];
+					$user_mail = $user_login->mail;
+					//$user = $user_login;
+					//drupal_session_regenerate();
+					//OK! USER LOGIN
+					return "3,".$user_mail.','.$user_first_name.','.$user_last_name.','.$user_primary_phone.','.$user_additional_phone;
+				}else
+				{
+					//Password don't match - return forgot password link
+					return "2";
+				
+				}	
+			}
+		
+	}
+	 return '1';
+	 
+	
+}
+/**
+ * Ajax callback to display the current time.
+ */
+function movecalc_get_price_type_ajax($type ='ajax'){
+	 $year = arg(2);
+	 $month = arg(3);
+	 $day = arg(4);	 
+	 $date = $year.'-'.$month.'-'.$day;
+	 $type = _movecalc_get_peak_type($date);
+	
+	 return $type;
+	
+}
+function movecalc_ajax_calendar_update_callback($type ='ajax') {
+	$date = arg(2);
+	$peak_type = arg(3);
+	
+	$record = new StdClass();
+	$record->date = $date;
+	$record->price_type = $peak_type;				
+	
+	$query = db_merge('price_calendar')
+		->key(array('date'=>$record->date))
+		->fields((array) $record);
+		
+	$query->execute();
+}
+
+function movecalc_ajax_truck_update_callback($type ='ajax') {
+  // Do any database queries, processing, etc.
+  $nid = arg(2);
+  $truck = arg(3);
+  _ajax_reader_node_update('truck',$nid,$truck);
+  
+
+}
+function movecalc_ajax_date_update_callback($type ='ajax') {
+  // Do any database queries, processing, etc.
+  $nid = arg(2);
+  $month = arg(3);
+  $day = arg(4);
+  $year = arg(5);
+  $time = arg(6);
+  $date = $year.'-'.$month.'-'.$day;
+  _ajax_reader_node_update('date',$nid,$date,$time);
+  
+}
+function movecalc_ajax_time_update_callback($type ='ajax') {
+  // Do any database queries, processing, etc.
+  $nid = arg(2);
+  $time = arg(3);
+  _ajax_reader_node_update('time',$nid,$time);
+  
+}
+function _ajax_reader_node_update($type,$nid,$value,$time = NULL){
+	$node = node_load($nid);
+	$node_wrapper = entity_metadata_wrapper('node', $node);
+    if($type == 'truck')
+		$node_wrapper->field_truck->set(array($value));	
+	if($type == 'date'){
+		$node->field_date['und'][0]['value'] = $value;  // Date of Move
+		if($time != NULL)
+			$node_wrapper->field_start_time->set($time); // Preffered Time
+		}
+	if($type == 'time'){
+		$node_wrapper->field_start_time->set($value); // Preffered Time
+		}
+		
+	$node_wrapper->save();
+	
+}
+
+function _movecalc_get_moving_crew_kof($size_of_move,$type_from,$type_to,$work_time){
+	$crew = 2;
+	$kof = 1;
+	if($size_of_move == 1){ //Room
+		if(($type_from + $type_to) >= 6 && ($type_to !=6 || $type_from !=6))
+			$crew++;
+	}
+	elseif($size_of_move == 2){ // Studio
+		 if(($type_from + $type_to) > 3 && ($type_to !=6 || $type_from !=6))
+			$crew++;	
+		 if(($type_from + $type_to) > 8 && ($type_to !=6 || $type_from !=6))		
+			$crew++;	
+	}elseif($size_of_move > 2){ // 1 Small Bedroom and so on
+		$crew++;	
+		$crew_kof = _movecalc_get_crew_kof($crew);
+		if($work_time/$crew_kof > 6 || ($type_from + $type_to) > 8)
+			$crew++;		
+	}
+	
+	return $crew;
+
+}
+function _movecalc_get_crew_kof($crew){
+	if($crew == 2) return 1;
+	if($crew == 3 ) return 1.5;
+	if($crew == 4) return 2;
+	if($crew == 5) return 2.5;
+	if($crew == 6) return 3;
+
+}
+

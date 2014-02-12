@@ -5,6 +5,11 @@ input[type="text"].error:focus, input[type="password"].error:focus, textarea.err
 	border: 1px solid #FF6633;
 	background-color: #FFEBE8 !important;
 }
+select {
+-webkit-appearance: none;
+-moz-appearance: none;
+appearance: none;
+}
 h5{
     display: inline-block;
 }
@@ -19,13 +24,135 @@ h5{
     
     
 }
+.form-item.form-type-checkbox.form-item-Extra-Furnished-Rooms-1,.form-item-Extra-House-Furnished-Rooms-1,.form-item-Extra-House-Furnished-Rooms-2 {
+    pointer-events: none;
+    opacity: 0.5;
+}
+.move-size {
+position: relative;
+width: 340px;
+height: 210px;
+}
+.dinning_room {
+position: absolute;
+top: 109px;
+left: 107px;
+z-index: 1000;
+width: 115px;
+}
+.office_room_3,.office_room_4 {
+position: absolute;
+top: 90px;
+left: 153px;
+z-index: 999;
+width: 95px;
+}
+.office_room_5{
+position: absolute;
+top: 116px;
+left: 204px;
+z-index: 999;
+width: 95px;
+}
+.office_room_6{
+position: absolute;
+top: 118px;
+left: 212px;
+z-index: 999;
+width: 95px;
+}
+.office_room_8 {
+position: absolute;
+top: 130px;
+left: 229px;
+z-index: 999;
+width: 95px;
+}
+.office_room_7,.office_room_9,.office_room_10 {
+position: absolute;
+top: 135px;
+left: 177px;
+z-index: 989;
+width: 95px;
+z-index: 10001;
+}
+.extra_room_5,.extra_room_3{
+position: absolute;
+top: 105px;
+left: 0px;
+width: 105px;
+}
+.extra_room_4,.extra_room_6,.extra_room_7,.extra_room_9,.extra_room_10{
+position: absolute;
+top: 110px;
+left: -16px;
+width: 109px;
+}
+.extra_room_8 {
+position: absolute;
+top: 103px;
+left: 39px;
+width: 109px;
+}
+.basement_room {
+position: absolute;
+width: 110px;
+top: 30px;
+left: 210px;
+z-index:10;
+}
+.garage_room {
+position: absolute;
+width: 110px;
+top: 21px;
+left: 255px;
+z-index: 3;
+}
+.patio_room {
+position: absolute;
+top: 18px;
+width: 115px;
+left: 135px;
+z-index: 3;
+}
+.play_room {
+position: absolute;
+top: 169px;
+width: 115px;
+left: 52px;
+z-index: 10001;
+}
+.form-item.form-type-date-popup.form-item-Date-Storage {
+    label {
+        font-size: 12px;
+    }
+    .description {
+    display: none;
+     }
+}
+.form-item.form-type-textfield.form-item-Date-Storage-date {
+margin-bottom: -10px;
+margin-top: 5px;
+}
+.form-item.form-type-date-popup.form-item-Date-Storage {
+margin-top: -25px;
+}
+#edit-date-storage label {
+    display: none;
+}
+#edit-date-storage-datepicker-popup-0 {
+    width: 35%;
+    height: 20px;
+}
+
 .ajax-progress {
 position: absolute;
-bottom: 30px;
+bottom: 20px;
 left: 50%;
 }
 .roll {
 color: rgb(82, 186, 255);
+margin-top: 0px;
 }
 .form-item select.error {
 border: 1px solid red !important;
@@ -42,6 +169,16 @@ position: relative;
 width:100%;
 position: absolute;
 z-index:10;
+}
+#edit-calculator {
+    .three_block.info_block.apartment{
+        background: url(images/apartmentbg.png) no-repeat center center;
+        height: 720px;
+    }
+      .three_block.info_block.thouse{
+        background: url(images/thouse.png) no-repeat center center;
+        height: 720px;
+    }
 }
 /*progressbar*/
 #progressbar {
@@ -135,6 +272,7 @@ width: 19%;
 padding-left: 2%;
 padding-right: 4%;
 }
+.login_block {height:580px;}
 #back-to-calendar-btn {
 margin-left: 30px;
 position: absolute;
@@ -175,8 +313,17 @@ height: 600px;
 background: rgb(243, 243, 243);
 pointer-events:none;
 }
-.four_block.dis-1 {
-//width: 19% !important;
+.dis-1 .form-type-password{
+display: none;
+opacity:0.6;
+}
+.four_block.login_block.dis- {
+-webkit-box-shadow: inset -1px 0px 4px rgba(0,0,0,0.3);
+-moz-box-shadow: inset -1px 0px 4px rgba(0,0,0,0.3);
+box-shadow: inset -1px 0px 4px rgba(0,0,0,0.3);
+}
+#edit-poll-info.error {
+background-image: none !important;
 }
 .form-disabled, .dis-1 {
 opacity: 0.8;
@@ -189,26 +336,57 @@ padding-bottom: 20px;
 float: left;
 margin-right: 24px;
 font-size: 12px;
+ a{
+     color: #1AD438 !important;
+text-decoration: underline !important;
+ }
 }
 .four_block.dis-1 {
  .dis-1 {display:none;}
+}
+#edit-moving-from-zip,#edit-moving-to-zip,#edit-moving-from-city,#edit-moving-to-city,#edit-moving-from-state,#edit-moving-to-state {
+ background: #f3f3f3;
+pointer-events: none;   
+    
 }
 #movecalc-moving-form .four2_block {
 border: none;
 float: left;
 width: 46%;
-padding-left: 20px;
-margin-top: -70px;
-margin-bottom: 20px;
+padding-left: 315px;
+
 }
+#movecalc-moving-form .four2_block.log-1{ 
+margin-top: -345px;
+}
+#movecalc-moving-form .four2_block.log-{ 
+margin-top: -260px;
+}
+#message-alert {
+position: absolute;
+left: 44%;
+padding: 5px;
+color: #3190f2;
+font-family: Open Sans, sans-serif;
+}
+.form-item-moving-from label,.form-item-moving-to label{
+display: none;
+}
+.four_block.block_from,.time_block{
+margin-top: 20px;
+}
+
 #edit-moving-from-state,#edit-moving-to-state {
 padding: 7px;
 width: 107%;
 }
 #request_user_login {
+    float: right;
+margin-right: -15px;
   background-color: #0AE52D;
   color: white !important;
 font-size: 12px;
+ &:hover {background-color: #2EEC4D; }
 }
 .login-alert {
 display: none;
@@ -243,11 +421,43 @@ float: left;
     background: rgba(231, 231, 231, 0.36);
 height:600px;
 }
-#map_direction {
+#map_direction ,#map_direction2 {
 width: 100%;
 height: 250px;
 margin-bottom: 20px;
 }
+#map_direction_to_storage ,#map_direction_from_storage {
+width: 100%;
+height: 140px;
+margin-bottom: 20px;
+}
+.calc-intro.storage_from {
+padding-bottom: 0px;
+}
+.calc-intro.storage_to {
+padding-top: 0px;
+}
+.storage {
+   h5{ font-size: 12px; line-height: 5px;margin-top:0; margin-bottom:0;}
+    .calc-intro_description {
+    font-size: 12px;
+    }
+  
+}
+.calc_block.three_block.storage {
+ .moving-date {
+    color: #353535 !important;
+    font-size: 13px !important;
+    line-height: 14px !important;
+    margin-top: 0px !important;
+    margin-bottom: 0px !important;
+    }
+}
+
+.box_info.storage {
+margin-top: 15px;
+}
+
 .direction_info {
     h5 {display:block;margin-top: 5px;}
     
@@ -256,10 +466,17 @@ margin-bottom: 20px;
     background: rgba(231, 231, 231, 0.36);
 height:570px;
 }
+.dis-1 .form-item.form-type-radios.form-item-poll-info {
+display: none;
+}
 #edit-service {
-margin-top: 12px;
+margin-top: 10px;
 width: 110%;
-padding: 7px;
+padding: 0.2em !important;
+}
+.disabled {
+opacity: 0.4;
+background: #CECECE;
 }
 .two_block ,.calc_block {
 float: left;
@@ -325,7 +542,7 @@ content: "";
 }
 .calc-intro_heading {
 font-family: "Trade Gothic W01 Roman","Helvetica Neue",Helvetica,Arial,sans-serif;
-color: #00c8d7;
+ color: #5685FF;
 font-size: 18px;
 font-size: 1.8rem;
 line-height: 1.2;
@@ -388,7 +605,6 @@ right: 35px;
 .box_info {
 padding-bottom: 10px;
 border-bottom: 1px solid rgb(228, 228, 228);
-padding-top: 10px;
 }
 #edit-go-to-summery {
 float: right;
@@ -497,20 +713,53 @@ margin-bottom:10px;
 }
 .red {color: rgb(255, 108, 108);}
   span{
-    color: #00c8d7;
+    color: #5685FF;
     }
-#edit-calculator-results{
+.three_block.direction_info {
+   span,.calc-intro_description{
+    color: #5685FF;
+    }
+}
+.password-strength,.password-suggestions.description {
+display: none !important;
+}
+.account_info {
+    ul{padding-left:20px; padding-top:10px;}
+    li{
+        list-style: initial;
+        line-height: 20px;
+        font-size: 14px;
+    }
+    h2 {
+        font-size: 16px;
+        margin-top: 31px;
+        text-transform: inherit;
+        color: black;
+        font-family: 'PT Sans', Helvetica, Arial, sans-serif;
+        }
+}
+.form-item .form-select, .form-item .form-text, .form-item .form-textarea {
+    padding: 0.3em !important;
+    
+}
+#summery_results,#edit-calculator-results{
       .moving-date {
         color: #353535;
         font-size: 16px;
-        line-height: 24px;
+        line-height: 20px;
+        margin-top: 5px;
       }
-    
+      .box_info .calc-intro_description {
+        line-height: 10px;
+        font-size: 12px;
+        color: #A8A8A8;
+      }
 }
 #edit-calculator {
     .service-type {
         line-height: 24px;
         h3 {font-size:18px; float:left; margin-right:15px;}
+        color: #5685FF;
         
     }
     .moving-date {
@@ -524,7 +773,7 @@ font-size: 20px;
         .moving-from, .moving-to ,.move-size {
         line-height: 20px;
         margin-bottom: 10px;
-        margin-top: 10px;
+        margin-top: 5px;
              h3 {
             font-size: 18px;
             }
@@ -566,4 +815,5 @@ cursor: pointer;
 -webkit-box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
 -moz-box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
 box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+margin:0px;
 }

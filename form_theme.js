@@ -30,39 +30,19 @@
 						$('#result_box').empty();
 						nextstep('#edit-calculator');
 						$('#result_box').append(Drupal.settings.calculator.result_box);	
-						$('#map_direction').gmap3({
-							   getroute:{
-								options:{
-									origin:Drupal.settings.calculator.zip_from,
-									destination:Drupal.settings.calculator.zip_to,
-									travelMode: google.maps.DirectionsTravelMode.DRIVING
-								},
-								callback: function(results){
-								  if (!results) return;
-								  $(this).gmap3({
-									map:{
-									  options:{
-										zoom: 13,  
-										center: [-33.879, 151.235]
-									  }
-									},
-									directionsrenderer:{
-									  container: $(document.createElement("div")).addClass("googlemap").insertAfter($("#test")),
-									  options:{
-										directions:results
-									  } 
-									}
-								  });
-								}
-							  }			
-						});
+						
+						showMap('#map_direction',Drupal.settings.calculator.zip_from,Drupal.settings.calculator.zip_to);
+						showMap('#map_direction_to_storage',Drupal.settings.calculator.zip_from,Drupal.settings.calculator.zip_storage);
+						showMap('#map_direction_from_storage',Drupal.settings.calculator.zip_storage,Drupal.settings.calculator.from_storge_to);
 				}
 				//Confirm AJax Step 
 				if(Drupal.settings.calculator.step == 'Continue to Summery'){	
 						$('#summery_results').empty();
 						nextstep('#edit-personal-info');						
 						$('#summery_results').append(Drupal.settings.calculator.summery_info);	
-					
+						showMap('#map_direction2',Drupal.settings.calculator.zip_from,Drupal.settings.calculator.zip_to);
+						showMap('#map_direction_to_storage2',Drupal.settings.calculator.zip_from,Drupal.settings.calculator.zip_storage);
+						showMap('#map_direction_from_storage2',Drupal.settings.calculator.zip_storage,Drupal.settings.calculator.from_storge_to);
 				}
 				//Confirm AJax Step 
 				if(Drupal.settings.calculator.step == 'Confirm'){	
@@ -123,9 +103,9 @@
 				if(data['status']=='OK' && counryCheck != "undefined" && data['results'][0]['address_components'][counryCheck]['short_name'] == 'US') {
 		  
 				  if( $this.attr( "id" ) == 'edit-zip-code-from')
-					$("#calc-info-steps .box_info .moving-from").empty().append('<h3>Moving From:</h3>'+data['results'][0]['formatted_address']+'<span></span>').show("slow");	
+					$("#calc-info-steps .box_info .moving-from").empty().append('<h3>Moving From:</h3><span>'+data['results'][0]['formatted_address']+'</span>').show("slow");	
 				  else 
-					$("#calc-info-steps .box_info .moving-to").empty().append('<h3>Moving To:</h3>'+data['results'][0]['formatted_address']+'<span></span>').show("slow");		
+					$("#calc-info-steps .box_info .moving-to").empty().append('<h3>Moving To:</h3><span>'+data['results'][0]['formatted_address']+'</span>').show("slow");		
 					
 				$this.removeClass('error');
 				  $(".calc-error").empty();	
@@ -143,7 +123,8 @@
 			  if($this.attr( "id" ) == 'edit-size-move'){
 				$("#calc-info-steps .calc-intro").hide("slow").empty();
 				
-				$("#edit-extra-furnished-rooms").find('input[type=checkbox]:checked').removeAttr('checked');
+				//$("#edit-extra-furnished-rooms").find('input[type=checkbox]:checked').removeAttr('checked');
+				
 				
 				$("#calc-info-steps .box_info .move-size").empty().append(SizeOfMoveTips($this.val())).show(200);
 				//$("a.move_size").fancybox();
@@ -161,12 +142,12 @@
 			   if($this.attr( "id" ) == 'edit-move-date-datepicker-popup-0'){
 				$("#calc-info-steps .calc-intro").hide("slow").empty();
 				$("#calc-info-steps .box_info h3.moving-date").empty().append('Move Date : <span>'+$this.val()+'</span>').show("slow");
-				$("#calc-info-steps .box_info .service-type").empty().append('<h3>Type of service:</h3>'+$('#edit-service option:selected').text()+'').show("slow");
-			  }
+				$("#calc-info-steps .box_info .service-type").empty().append('<h3>Type of service:</h3><span>'+$('#edit-service option:selected').text()+'</span>').show("slow");
+				$("#edit-date-storage-datepicker-popup-0" ).datepicker( "option", "minDate", $this.val());
+			 }
 				 if($this.attr( "id" ) == 'edit-service'){
 				$("#calc-info-steps .calc-intro").hide("slow").empty();
-				$("#calc-info-steps .box_info .service-type" ).empty().append('<h3>Type of service:</h3>'+$('#edit-service option:selected').text()).show("slow");
-			  
+				$("#calc-info-steps .box_info .service-type" ).empty().append('<h3>Type of service:</h3>'+$('#edit-service option:selected').text()).show("slow");		  
 			  }
 			  
 			  
@@ -179,13 +160,73 @@
 			 
 	});
 			
+		$('#edit-service').change(function() {
+		
+			if($(this).val() == '3') {//Loading Help
+				$("#edit-zip-code-to").attr("disabled", "disabled").addClass("disabled").removeClass("required");
+				$("#edit-zip-code-from").removeAttr("disabled").removeClass("disabled").addClass("required");
+				
+				$("#edit-type-to").attr("disabled", "disabled").addClass("disabled").removeClass("required");
+				$("#edit-type-from").removeAttr("disabled").removeClass("disabled").addClass("required");
+				
+
+			}
+			else if($(this).val() == '4') {//UnLoading Help
+				$("#edit-zip-code-from").attr("disabled", "disabled").addClass("disabled").removeClass("required");
+				$("#edit-zip-code-to").removeAttr("disabled").removeClass("disabled").addClass("required");
+				
+				$("#edit-type-from").attr("disabled", "disabled").addClass("disabled").removeClass("required");
+				$("#edit-type-to").removeAttr("disabled").removeClass("disabled").addClass("required");
+			}
+			else{	
+				$("#edit-zip-code-from").removeAttr("disabled").removeClass("disabled").addClass("required");
+				$("#edit-zip-code-to").removeAttr("disabled").removeClass("disabled").addClass("required");
+				$("#edit-type-from").removeAttr("disabled").removeClass("disabled").addClass("required");
+				$("#edit-type-to").removeAttr("disabled").removeClass("disabled").addClass("required");
+			}
+			
+		
+		});
+		
+		$('#edit-confirm-passowrd-signup').once('login').change(function(){
+			if($(this).val() == $('#edit-passowrd-signup').val()){
+					//Everything is ok!
+			}else{			
+				$(this).val('');
+				$("#summery-alert").append("<p>Password does not match the confirm password.</p>");
+			}
+		
+		
+		});
+		
+		$('#edit-date-storage-datepicker-popup-0').once('login').change(function() {
+		
+		var storageDate = new Date($(this).val());
+		var moveDate = new Date($("#edit-move-date-datepicker-popup-0" ).val());
+	
+            if (storageDate < moveDate ) {
+					// Something Wrong
+						$(this).val('');
+            }
+	
+			
+		});
+			
 			
 	  // If Add extra rooms add images
-	  $( "#edit-extra-furnished-rooms input[type=checkbox]").click(function() {
-			var thisCheck = $(this);
-			var rooms = $("#edit-extra-furnished-rooms").find('input[type=checkbox]:checked');
-			$("#calc-info-steps .box_info .move-size").empty().append(ShowRooms(rooms)).show(200);
-			$("a.move_size").fancybox({
+	
+	  
+	  $( "#edit-extra-furnished-rooms input[type=checkbox]").once('login').click(function() {
+			var room = $(this);
+			var roomVal = room.val();	
+			if(room[0]['checked'])
+				$("#calc-info-steps .box_info .move-size").append(ShowRoom(roomVal)).show(200);
+			else{
+				HideRoom(room);
+			}
+			
+			
+			$(".move-size a").fancybox({
 					'transitionIn'	:	'elastic',
 					'transitionOut'	:	'elastic',
 					'speedIn'		:	400, 
@@ -194,6 +235,25 @@
 				});		
 		});
 	
+			  // If Add extra house rooms add images
+	  $( "#edit-extra-house-furnished-rooms input[type=checkbox]").once('login').click(function() {
+			var room = $(this);
+			var roomVal = room.val();
+			if(room[0]['checked'])
+				$("#calc-info-steps .box_info .move-size").append(ShowRoom(roomVal)).show(200);
+			else{
+				HideRoom(room);
+			}
+			
+			
+			$(".move-size a").fancybox({
+					'transitionIn'	:	'elastic',
+					'transitionOut'	:	'elastic',
+					'speedIn'		:	400, 
+					'speedOut'		:	200, 
+					'overlayShow'	:	true
+				});		
+		});
 	
 	  
 	  $('#go-to-summery-btn').once('summery').click(function() {
@@ -266,7 +326,7 @@
          return false;
 	  });
 			
-			
+		
 			
 			
 			$("#request_user_login").once('login').click(function() {
@@ -309,6 +369,24 @@
 			
 			
 			
+		$('#edit-prefered-time').qtip({
+		   content: 'Please note! Only morning guaranties the exact arrival time.<br> Afternoon and evenings times given as a window and arrival will depend on our first availability.',
+		   show: 'mouseover',
+		   hide: 'mouseout',
+		  position: {
+			  corner: {
+				 target: 'rightMiddle',
+				 tooltip: 'leftMiddle'
+			  }
+		   },
+		   
+		   style: { 
+				name: 'red',
+				tip: 'leftMiddle'
+			}
+		});	
+			
+	
 			
 			
 	}};
@@ -319,11 +397,13 @@
 		$("#edit-first-name").val(user[2]);
 		$("#edit-last-name").val(user[3]);	
 		$("#edit-passowrd-signup").val($("#edit-passowrd-login").val());	
+		$("#edit-confirm-passowrd-signup").val($("#edit-passowrd-login").val());	
 		$("#primary_phone").val(user[4]);
 		$("#edit-additional-phone").val(user[5]);
 		
 		$(".user-info").addClass("dis-1");
 		$(".login_block").addClass("dis-1");
+		$('.time_block').hide();
 
 	}
 	
@@ -442,16 +522,7 @@
 				}
 				
 			}
-		/*	if($this.attr("id") == "edit-passowrd")
-			   if(password_status == '1' || password_status == '2')	{
-				$this.addClass('error');
-					  hasError = true;
-			  }	
-			  else 
-				$this.removeClass('error');
-					
-			*/  
-			  
+		
 			  
 		   });
 		   
@@ -484,7 +555,51 @@
 		  
 	  
 		}
+	function showMap(id,from,to){
+	if(from != to) {
+			$(id).gmap3({
+									   getroute:{
+										options:{
+											origin:from,
+											destination:to,
+											travelMode: google.maps.DirectionsTravelMode.DRIVING,
+										},
+										callback: function(results){
+										  if (!results) return;
+										  $(this).gmap3({
+											map:{
+											  options:{
+												zoom: 13,  
+												center: [-33.879, 151.235]
+											  }
+											},
+											directionsrenderer:{
+											  container: $(document.createElement("div")).addClass("googlemap").insertAfter($("#test")),
+											  options:{
+												directions:results
+											  } 
+											}
+										  });
+										}
+									  }			
+								});
+								
+						}
+						else{
+								$(id).gmap3({
+													map: {
+														options: {
+														  maxZoom: 14 
+														}  
+													 },
+													 marker:{
+														 address: from
+													 }
+													},"autofit" );
+						
+						}
 	
+	}
 	function showAlert(type){
 		  var alert_string;
 		  switch (type) {
@@ -503,54 +618,193 @@
 	function SizeOfMoveTips(type){
 	   switch (type) {
                     case ('1'):
-                        return '<h3>Size of Move:</h3>Room<div class="calc-intro_description"><a   class="move_size" title="Room" href="'+host+'/sites/all/modules/movecalc/images/rooms/room.jpg"><img src="'+host+'/sites/all/modules/movecalc/images/rooms/room.jpg"></a><div class="roll">Click On Image to Enlarge</div> <div class="desc">Room includes bed, mattrasses, dresser, 3-10 boxes, tv, tv-stand, table. </div>';
+                        addRequired();
+						hideRooms();
+						return '<h3>Size of Move:</h3><span>Room</span><div class="calc-intro_description"><a   class="move_size" title="Room" href="'+host+'/sites/all/modules/movecalc/images/rooms/room.jpg"><img src="'+host+'/sites/all/modules/movecalc/images/rooms/smroom.png"></a><div class="roll">Click On Image to Enlarge</div> <div class="desc">Room includes bed, mattrasses, dresser, 3-10 boxes, tv, tv-stand, table. </div>';
                         break;
                     case ('2'):
-                       return '<h3>Size of Move:</h3>Studio<div class="calc-intro_description"><a  class="move_size"  title="Studio" href="'+host+'/sites/all/modules/movecalc/images/rooms/1sm.jpg"><img title="Studio" src="'+host+'/sites/all/modules/movecalc/images/rooms/1sm.jpg"></a><div class="roll">Click On Image To Enlarge</div> <div class="desc"><span>Studio</span> size apartment typically consist of one large room, whichserves as the living, dining and bedroom. <br> Average Studio has 35-40 assorted size boxes, suitecases and crates.</div>';
+                        addRequired();
+						hideRooms();
+						return '<h3>Size of Move:</h3><span>Studio</span><div class="calc-intro_description"><a  class="move_size"  title="Studio" href="'+host+'/sites/all/modules/movecalc/images/rooms/studio.jpg"><img title="Studio" src="'+host+'/sites/all/modules/movecalc/images/rooms/studio.png"></a><div class="roll">Click On Image To Enlarge</div> <div class="desc"><span>Studio</span> size apartment typically consist of one large room, whichserves as the living, dining and bedroom. <br> Average Studio has 35-40 assorted size boxes, suitecases and crates.</div>';
                         break;
 					case ('3'):
-                      return '<h3>Size of Move:</h3>Small 1 Bedroom Apt<div class="calc-intro_description"><a  class="move_size"  title="Small 1 Bedroom Apt" href="'+host+'/sites/all/modules/movecalc/images/rooms/1sm.jpg"><img title="Small 1 Bedroom Apt" src="'+host+'/sites/all/modules/movecalc/images/rooms/1sm.jpg"></a><div class="roll">Click On Image To Enlarge</div> <div class="desc"><span>Studio</span> size apartment typically consist of one large room, whichserves as the living, dining and bedroom. <br> Average Studio has 35-40 assorted size boxes, suitecases and crates.</div>';
+                      addRequired();
+					  showRooms();
+						return '<h3>Size of Move:</h3><span>Small 1 Bedroom Apartment</span><div class="calc-intro_description"><a  class="move_size"  title="Small 1 Bedroom Apartment" href="'+host+'/sites/all/modules/movecalc/images/rooms/1sm.jpg"><img title="Small 1 Bedroom Apartment" src="'+host+'/sites/all/modules/movecalc/images/rooms/sm1sm.png"></a><div class="roll">Click On Image To Enlarge</div> <div class="desc"><span>Studio</span> size apartment typically consist of one large room, whichserves as the living, dining and bedroom. <br> Average Studio has 35-40 assorted size boxes, suitecases and crates.</div>';
                         break;
 					case ('4'):
-                        return '<h3>Size of Move:</h3>Large 1 Bedroom Apt<div class="calc-intro_description"><a  class="move_size"  title="Large 1 Bedroom Apt" href="'+host+'/sites/all/modules/movecalc/images/rooms/1lar.jpg"><img title="Large 1 Bedroom Apt" src="'+host+'/sites/all/modules/movecalc/images/rooms/1lar.jpg"></a><div class="roll">Click On Image To Enlarge</div> <div class="desc"><span>Large 1 Bedroom Apt</span> size apartment typically consist of one large room, whichserves as the living, dining and bedroom. <br> Average Large 1 Bedroom Apt has 60-80 assorted size boxes, suitecases and crates.</div>';
+                        addRequired();
+						showRooms();
+						return '<h3>Size of Move:</h3><span>Large 1 Bedroom Apartment</span><div class="calc-intro_description"><a  class="move_size"  title="Large 1 Bedroom Apartment" href="'+host+'/sites/all/modules/movecalc/images/rooms/1lar.jpg"><img title="Large 1 Bedroom Apartment" src="'+host+'/sites/all/modules/movecalc/images/rooms/sm1lar.png"></a><div class="roll">Click On Image To Enlarge</div> <div class="desc"><span>Large 1 Bedroom Apt</span> size apartment typically consist of one large room, whichserves as the living, dining and bedroom. <br> Average Large 1 Bedroom Apt has 60-80 assorted size boxes, suitecases and crates.</div>';
                         break;
 					case ('5'):
-                       return '<div class="calc-intro"><h1 class="calc-intro_heading">Small 2 Bedroom Apt.</h1><p class="calc-intro_description"> Small 2 Bedroom Apt. includes  2 bed, mattrasses, dresser, 3-10 boxes, tv, tv-stand, table. <br> Living Room : cauches, tables, 10 boxes.</p></div>';
+                       addRequired();
+					   showRooms();
+					   return '<h3>Size of Move:</h3><span>Small 2 Bedroom Apartment</span><div class="calc-intro_description"><a  class="move_size"  title="Small 2 Bedroom Apartment" href="'+host+'/sites/all/modules/movecalc/images/rooms/2sm.jpg"><img title="Small 2 Bedroom Apartment" src="'+host+'/sites/all/modules/movecalc/images/rooms/sm2sm.png"></a><div class="roll">Click On Image To Enlarge</div> <div class="desc"><span>Small 2 Bedroom Apt</span> size apartment typically consist of one large room, whichserves as the living, dining and bedroom. <br> Average Large 1 Bedroom Apt has 60-80 assorted size boxes, suitecases and crates.</div>';
                         break;		
                     case ('6'):
-						return '<div class="calc-intro"><h1 class="calc-intro_heading">Large 2 Bedroom Apt.</h1><p class="calc-intro_description"> Large 2 Bedroom Apt. impuse lore ipsum somethien </p></div>';
+						addRequired();
+						showRooms();
+						 return '<h3>Size of Move:</h3><span>Large 2 Bedroom Apartment</span><div class="calc-intro_description"><a  class="move_size"  title="Large 2 Bedroom Apartment" href="'+host+'/sites/all/modules/movecalc/images/rooms/2lar.jpg"><img title="Large 2 Bedroom Apartment" src="'+host+'/sites/all/modules/movecalc/images/rooms/sm2lar.png"></a><div class="roll">Click On Image To Enlarge</div> <div class="desc"><span>Small 2 Bedroom Apt</span> size apartment typically consist of one large room, whichserves as the living, dining and bedroom. <br> Average Large 1 Bedroom Apt has 60-80 assorted size boxes, suitecases and crates.</div>';
                         break;
+					case ('7'):					
+                        addRequired();
+						showRooms();
+						return '<h3>Size of Move:</h3><span>3 Bedroom Apartment</span><div class="calc-intro_description"><a  class="move_size"  title="3 Bedroom Apartment" href="'+host+'/sites/all/modules/movecalc/images/rooms/3bed.jpg"><img title="3 Bedroom Apartment" src="'+host+'/sites/all/modules/movecalc/images/rooms/sm3bed.png"></a><div class="roll">Click On Image To Enlarge</div> <div class="desc"><span>3 Bedroom Apt</span> size apartment typically consist of one large room, whichserves as the living, dining and bedroom. <br> Average Large 1 Bedroom Apt has 60-80 assorted size boxes, suitecases and crates.</div>';
+						 break;
+                   case ('8'):
+						takeOfRequired();
+						showHouseRooms();
+						setHouseEntarence();
+						//$("#calc-info-steps .box_info .move-size").append(ShowRoom('2')).show(200);
+                        return '<h3>Size of Move:</h3><span>2 Bedroom House</span><div class="calc-intro_description"><a  class="move_size"  title="Large 2 Bedroom Apartment" href="'+host+'/sites/all/modules/movecalc/images/rooms/2lar.jpg"><img title="Large 2 Bedroom Apartment" src="'+host+'/sites/all/modules/movecalc/images/rooms/sm2bh.png"></a><div class="roll">Click On Image To Enlarge</div> <div class="desc"><span>Small 2 Bedroom Apt</span> size apartment typically consist of one large room, whichserves as the living, dining and bedroom. <br> Average Large 1 Bedroom Apt has 60-80 assorted size boxes, suitecases and crates.</div>';
+						 break;
+					case ('9'):
+                        takeOfRequired();
+						showHouseRooms();
+						setHouseEntarence();
+						$("#calc-info-steps .box_info .move-size").append(ShowRoom('2')).show(200);
+						return '<h3>Size of Move:</h3><span>3 Bedroom House</span><div class="calc-intro_description"><a  class="move_size"  title="3 Bedroom Apartment" href="'+host+'/sites/all/modules/movecalc/images/rooms/3bed.jpg"><img title="3 Bedroom Apartment" src="'+host+'/sites/all/modules/movecalc/images/rooms/sm3bed.png"></a><div class="roll">Click On Image To Enlarge</div> <div class="desc"><span>3 Bedroom Apt</span> size apartment typically consist of one large room, whichserves as the living, dining and bedroom. <br> Average Large 1 Bedroom Apt has 60-80 assorted size boxes, suitecases and crates.</div>';
+						break;
+				    case ('10'):
+                       takeOfRequired();
+					   showHouseRooms();
+					   setHouseEntarence();
+					   $("#calc-info-steps .box_info .move-size").append(ShowRoom('2')).show(200);
+					   return '<h3>Size of Move:</h3><span>4 Bedroom House</span><div class="calc-intro_description"><a  class="move_size"  title="3 Bedroom Apt" href="'+host+'/sites/all/modules/movecalc/images/rooms/4bed.png"><img title="3 Bedroom Apt" src="'+host+'/sites/all/modules/movecalc/images/rooms/4bed.png"></a><div class="roll">Click On Image To Enlarge</div> <div class="desc"><span>3 Bedroom Apt</span> size apartment typically consist of one large room, whichserves as the living, dining and bedroom. <br> Average Large 1 Bedroom Apt has 60-80 assorted size boxes, suitecases and crates.</div>';					
 						default:
                         return '<div class="calc-intro"><h1 class="calc-intro_heading">Choose Size</h1><p class="calc-intro_description" > Please choose size of your move.</p></div>';
-                   
-                }	  
+			  
+			  }	  
 	}
 	
-	function ShowRooms(rooms){
+	function setHouseEntarence(){
+		$("#edit-type-from").val('7').attr("disabled", "disabled").addClass("disabled");
+		$("#edit-type-to").val('7');
+	}
+	
+	function takeOfRequired(){
+		//$("#edit-type-from").removeClass("required");
+		//$("#edit-type-to").removeClass("required");
+		
+		$('#edit-calculator .three_block').removeClass("apartment");
+		$('#edit-calculator .three_block').addClass("thouse");
+	}
+	function addRequired(){
+		$("#edit-type-from").val('');
+		$("#edit-type-to").val('');
+		//$("#edit-type-from").addClass("required");
+	//	$("#edit-type-to").addClass("required");
+		$("#edit-type-from").removeAttr("disabled");
+		$("#edit-type-from").removeClass("disabled");
+		$('#edit-calculator .three_block').removeClass("thouse");
+		$('#edit-calculator .three_block').addClass("apartment");
+		
+	}
+	function hideRooms() {
+		for(var i=1; i <5 ; i++){
+			
+		 $('.form-item-Extra-Furnished-Rooms-'+i).hide();
+		 $('.form-item-Extra-Furnished-Rooms-'+(i)).find('input[type=checkbox]:checked').removeAttr('checked');
+		
+		}
+		
+	}
+	function showRooms() {
+	$('#edit-extra-furnished-rooms-1').attr('checked',true);
+		for(var i=1; i <5 ; i++){			
+		 $('.form-item-Extra-Furnished-Rooms-'+i).show();
+		 $('.form-item-Extra-Furnished-Rooms-'+(i+1)).find('input[type=checkbox]:checked').removeAttr('checked');	
+		}
+	}
+	function showHouseRooms() {
+		for(var i=2; i <9 ; i++){			
+		 $('.form-item-Extra-House-Furnished-Rooms-'+i).show();
+		 $('.form-item-Extra-House-Furnished-Rooms-'+(i+1)).find('input[type=checkbox]:checked').removeAttr('checked');	
+		}
+	}
+	
+	function ShowRoom(room){
 			
 			var roomSize = $("#edit-size-move").val();
-			 jQuery.each(rooms, function(i,room) {
-				 roomSize = roomSize + room['value'];				
-			});
-			 
+						 
 			
-			 switch (roomSize) {
-			 case ('4'):
-			 return SizeOfMoveTips(roomSize);
-			 break;
-			 case ('41'): // 1 Large Bedroom + DR
-				 return '<h3>Size of Move:</h3>Large 1 Bedroom Apt with Dinning Room<div class="calc-intro_description"><a  class="move_size"  title="Large 1 Bedroom Apt with Dinning Room" href="'+host+'/sites/all/modules/movecalc/images/rooms/1lard.jpg"><img title="Large 1 Bedroom Apt with Dinning Room" src="'+host+'/sites/all/modules/movecalc/images/rooms/1lard.jpg"></a><div class="roll">Click On Image To Enlarge</div> <div class="desc"><span>Large 1 Bedroom Apt with Dinning Room</span> size apartment typically consist of one large room, whichserves as the living, dining and bedroom. <br> Average Large 1 Bedroom Apt with Dinning Room has 60-70 assorted size boxes, suitecases and crates.</div>';	
-				break;
-			 case ('412'): // 1 Large Bedroom + DR
-				 return '<h3>Size of Move:</h3>Large 1 Bedroom Apt with Dinning Room and Office<div class="calc-intro_description"><a  class="move_size"  title="Large 1 Bedroom Apt with Dinning Room and office" href="'+host+'/sites/all/modules/movecalc/images/rooms/1lardo.jpg"><img title="Large 1 Bedroom Apt with Dinning Room" src="'+host+'/sites/all/modules/movecalc/images/rooms/1lardo.jpg"></a><div class="roll">Click On Image To Enlarge</div> <div class="desc"><span>Large 1 Bedroom Apt with Dinning Room</span> size apartment typically consist of one large room, whichserves as the living, dining and bedroom. <br> Average Large 1 Bedroom Apt with Dinning Room has 60-70 assorted size boxes, suitecases and crates.</div>';	
-				break;
-			 
-			 
-			 }
-			
-			
-	
-	
+			 switch (room) {		
+			case ('2'): // Dinnig Room
+				 return '<a  class="dinning_room" id="dinning_room" title="Dinning Room" href="'+host+'/sites/all/modules/movecalc/images/rooms/dinning.png"><img title="Dinning Room" src="'+host+'/sites/all/modules/movecalc/images/rooms/smdr.png"></a>';	
+				 $('a.dinning_room').zoom({url:host+'/sites/all/modules/movecalc/images/rooms/dinning.png'});
+				break; 	
+			case ('3'): // Office
+				 return '<a  class="office_room_'+roomSize+'"  title="Office" href="'+host+'/sites/all/modules/movecalc/images/rooms/office.png"><img title="Office" src="'+host+'/sites/all/modules/movecalc/images/rooms/smoffice.png"></a>';	
+				break; 	
+			case ('4'): // Extra room
+				 return '<a  class="extra_room_'+roomSize+'"  title="Extra or Play room" href="'+host+'/sites/all/modules/movecalc/images/rooms/extraroom.png"><img title="Extra room" src="'+host+'/sites/all/modules/movecalc/images/rooms/smextraroom.png"></a>';	
+				break; 	
+			case ('5'): // Basement
+				 return '<a  class="basement_room"  title="Basement or Storage" href="'+host+'/sites/all/modules/movecalc/images/rooms/basement.png"><img title="Basement" src="'+host+'/sites/all/modules/movecalc/images/rooms/smbasement.png"></a>';	
+				break; 	
+			case ('6'): // Garage
+				 return '<a  class="garage_room"  title="Garage" href="'+host+'/sites/all/modules/movecalc/images/rooms/garage.png"><img title="Basement" src="'+host+'/sites/all/modules/movecalc/images/rooms/garage.png"></a>';	
+				break; 	
+			case ('7'): // Patio
+				 return '<a  class="patio_room"  title="Patio" href="'+host+'/sites/all/modules/movecalc/images/rooms/smpatio.png"><img title="Basement" src="'+host+'/sites/all/modules/movecalc/images/rooms/smpatio.png"></a>';	
+				break; 	
+			case ('8'): // Play 
+				 return '<a  class="play_room"  title="Play room" href="'+host+'/sites/all/modules/movecalc/images/rooms/playroom.png"><img title="Basement" src="'+host+'/sites/all/modules/movecalc/images/rooms/playroom.png"></a>';	
+				break; 	
+			 }			
 	}
+	function HideRoom(room){
+		var roomVal = room.val();
+		var roomSize = $("#edit-size-move").val();
+		 switch (roomVal) {		
+			case ('2'): // Dinnig Room
+				$('.dinning_room').remove();	
+				break; 	
+			case ('3'): // Dinnig Room
+				$('.office_room_'+roomSize).remove();	
+				break; 	
+			case ('4'): // Dinnig Room
+				$('.extra_room_'+roomSize).remove();	
+				break; 	
+			case ('5'): // Dinnig Room
+				$('.basement_room').remove();	
+				break; 	
+			case ('6'): // Dinnig Room
+				$('.garage_room').remove();	
+				break; 	
+			case ('7'): // Dinnig Room
+				$('.patio_room').remove();	
+				break; 	
+			case ('8'): // Dinnig Room
+				$('.play_room').remove();	
+				break; 	
+			 }
+		
+	}
+	
+			var images = new Array()
+			function preload() {
+				for (i = 0; i < preload.arguments.length; i++) {
+					images[i] = new Image()
+					images[i].src = preload.arguments[i]
+				}
+			}
+			preload(
+				host+'/sites/all/modules/movecalc/images/rooms/smroom.png',
+				host+'/sites/all/modules/movecalc/images/rooms/sm1sm.png',				
+				host+'/sites/all/modules/movecalc/images/rooms/sm2sm.png',
+				host+'/sites/all/modules/movecalc/images/rooms/sm2lar.png',
+				host+'/sites/all/modules/movecalc/images/rooms/sm1lar.png',
+				host+'/sites/all/modules/movecalc/images/rooms/sm3bed.png',
+				host+'/sites/all/modules/movecalc/images/rooms/smoffice.png',
+				host+'/sites/all/modules/movecalc/images/rooms/smextraroom.png',
+				host+'/sites/all/modules/movecalc/images/rooms/smbasement.png',
+				host+'/sites/all/modules/movecalc/images/rooms/smdr.png',	
+				host+'/sites/all/modules/movecalc/images/rooms/garage.png',	
+				host+'/sites/all/modules/movecalc/images/rooms/smpatio.png',	
+				host+'/sites/all/modules/movecalc/images/rooms/playroom.png'
+			)
+	
 	
 }(jQuery));

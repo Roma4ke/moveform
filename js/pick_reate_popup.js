@@ -6,10 +6,17 @@ Drupal.behaviors.movecalc = {
 	calendar = Drupal.settings.movecalc.calendar;
 	
     for (var id in Drupal.settings.datePopup) {
+	if(id == "edit-date-storage-datepicker-popup-0"){
+		 Drupal.settings.datePopup[id].settings.changeYear	= false;
+	     Drupal.settings.datePopup[id].settings.changeMonth = false;
+	
+	}
+	else {
 	  Drupal.settings.datePopup[id].settings.changeYear	= false;
 	 // Drupal.settings.datePopup[id].settings.dateFormat	= "F t, Y (l)";
 	   Drupal.settings.datePopup[id].settings.changeMonth = false;
       Drupal.settings.datePopup[id].settings.beforeShowDay = checkDate;
+	  }
     }
   }
 	 
